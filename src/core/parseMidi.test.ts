@@ -41,6 +41,37 @@ describe('parseMidi', () => {
     expect(() => parseMidi(empty, 'Vacío')).toThrow(/notas/i);
   });
 
+  it('ignora pistas de percusión (canal 10) para asignar manos', () => {
+    const midi = new Midi();
+    const drums = midi.addTrack();
+    drums.channel = 9; // canal 10 (0-indexado) = percusión
+    drums.addNote({ midi: 36, time: 0, duration: 0.25 });
+    drums.addNote({ midi: 38, time: 0.5, duration: 0.25 });
+    const melody = midi.addTrack();
+    melody.addNote({ midi: 50, time: 0, duration: 0.5 }); // grave → izquierda
+    melody.addNote({ midi: 70, time: 0.5, duration: 0.5 }); // agudo → derecha
+    const song = parseMidi(midi.toArray().buffer as ArrayBuffer, 'Drums');
+    expect(song.notes).toHaveLength(2);
+    expect(song.notes.some(n => n.midi === 36 || n.midi === 38)).toBe(false);
+    // La melodía queda como única pista → separación por Do central
+    expect(song.notes.find(n => n.midi === 50)!.hand).toBe('left');
+    expect(song.notes.find(n => n.midi === 70)!.hand).toBe('right');
+  });
+
+  it('descarta notas fuera del rango del piano (21..108)', () => {
+    const midi = new Midi();
+    const t = midi.addTrack();
+    t.addNote({ midi: 15, time: 0, duration: 0.5 });
+    t.addNote({ midi: 60, time: 0.5, duration: 0.5 });
+    t.addNote({ midi: 115, time: 1, duration: 0.5 });
+    const song = parseMidi(midi.toArray().buffer as ArrayBuffer, 'Rango');
+    expect(song.notes.map(n => n.midi)).toEqual([60]);
+  });
+
+  it('lanza error con bytes que no son MIDI', () => {
+    expect(() => parseMidi(new TextEncoder().encode('esto no es midi').buffer as ArrayBuffer, 'x')).toThrow(/válido/i);
+  });
+
   it('las notas quedan ordenadas por tiempo', () => {
     const song = parseMidi(twoTrackMidi(), 'Orden');
     const times = song.notes.map(n => n.time);

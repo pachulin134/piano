@@ -11,7 +11,7 @@ export function parseMidi(data: ArrayBuffer, title: string): Song {
   } catch {
     throw new Error('El archivo no es un MIDI válido');
   }
-  const tracks = midi.tracks.filter(t => t.notes.length > 0);
+  const tracks = midi.tracks.filter(t => t.notes.length > 0 && !t.instrument.percussion);
   if (tracks.length === 0) throw new Error('El archivo MIDI no contiene notas');
 
   const notes: SongNote[] = tracks
@@ -23,9 +23,11 @@ export function parseMidi(data: ArrayBuffer, title: string): Song {
         hand: assignHand(tracks.length, i, n.midi),
       })),
     )
+    .filter(n => n.midi >= 21 && n.midi <= 108) // rango del piano de 88 teclas
     .sort((a, b) => a.time - b.time || a.midi - b.midi);
+  if (notes.length === 0) throw new Error('El archivo MIDI no contiene notas');
 
-  const duration = Math.max(...notes.map(n => n.time + n.duration));
+  const duration = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
   const song: Song = {
     id: uid(),
     title,
