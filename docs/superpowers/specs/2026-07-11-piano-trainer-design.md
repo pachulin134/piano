@@ -8,7 +8,9 @@
 Aplicación web gratuita para aprender a tocar piano paso a paso, practicando canciones que el usuario puede añadir él mismo como archivos MIDI (`.mid`).
 
 - **Usuario:** una persona, nivel básico (conoce notas, no lee partitura con fluidez, no domina las dos manos).
-- **Instrumento:** Casio Privia PX-100 (puertos MIDI IN/OUT de 5 pines; requiere cable adaptador MIDI-a-USB, ~15-25 €, para conectarlo al ordenador).
+- **Instrumento:** Casio Privia PX-100 (puertos MIDI IN/OUT de 5 pines; requiere cable adaptador MIDI-a-USB, ~15-25 €).
+- **Dispositivo principal: iPhone**, apoyado en el atril del piano, conectado así: piano → cable MIDI-USB → adaptador USB(-A) a USB-C (o Lightning en iPhones antiguos) → iPhone. Como Safari/Chrome en iOS no soportan Web MIDI, en el iPhone la app se abre dentro de **"Web MIDI Browser"** (app gratuita de la App Store que sí lo soporta). En un ordenador con Chrome/Edge funciona directamente.
+- **Distribución:** la app se publica como web estática en una URL gratuita (GitHub Pages) para poder abrirla desde el móvil. En desarrollo se prueba en red local (`npm run dev -- --host`).
 - **Coste:** cero. Sin servidor, sin cuentas, sin suscripciones. Todo corre y se guarda en el navegador del usuario.
 
 ### Decisiones tomadas durante el brainstorming
@@ -19,6 +21,7 @@ Aplicación web gratuita para aprender a tocar piano paso a paso, practicando ca
 | Visualización | Notas que caen + partitura sincronizada, ambas a la vez |
 | Alcance | Entrenador de canciones + ejercicios básicos de calentamiento (no curso completo de teoría) |
 | Plataforma | Webapp propia desde cero (no fork de Sightread/Midiano, no app de escritorio) |
+| Dispositivo | iPhone como dispositivo principal (vía Web MIDI Browser); interfaz responsive pensada para móvil en horizontal, usable también en ordenador |
 
 ### Referencias de la auditoría de apps existentes
 
@@ -75,11 +78,16 @@ Disposición vertical: partitura sincronizada arriba, cascada de notas en el cen
 - Pruebas de integración del motor de práctica con archivos MIDI de ejemplo.
 - Prueba manual del flujo completo con el PX-100 real (Web MIDI no se puede automatizar de forma realista).
 
+## Fases de construcción
+
+- **Fase 1 (MVP):** núcleo practicable — importar MIDI, notas cayendo, teclado en pantalla (táctil), entrada MIDI, modo espera, manos separadas, velocidad, puntuación, biblioteca con persistencia y canciones incluidas. Interfaz responsive para móvil en horizontal.
+- **Fase 2:** partitura sincronizada, ejercicios de calentamiento, repetir sección, despliegue en GitHub Pages y PWA (instalable/offline).
+
 ## Fuera de alcance (versión 1)
 
 - Curso de teoría musical / itinerario de lecciones.
 - Detección de notas por micrófono.
-- Versión móvil.
+- App nativa de iOS/Android (la vía móvil es la web + Web MIDI Browser).
 - Cuentas de usuario y sincronización en la nube.
 - Compartir canciones online.
 
