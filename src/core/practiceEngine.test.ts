@@ -75,4 +75,31 @@ describe('PracticeEngine — modo continuo (sin espera)', () => {
     e.tick(0.5); // cruza los 3 grupos en un solo tick
     expect(e.time).toBeCloseTo(0.5, 5);
   });
+
+  it('onKeyDown devuelve "ignored" y no puntúa cuando no hay grupo pendiente', () => {
+    const e = new PracticeEngine(song([note(60, 0.5)]),
+      { waitMode: false, speed: 1, hand: 'both' });
+    e.tick(0.05); // en modo continuo nunca hay grupo pendiente
+    expect(e.onKeyDown(60)).toBe('ignored');
+    expect(e.attempted).toBe(false); // sin pulsaciones evaluadas, score()=100 no significa nada
+    expect(e.score()).toBe(100);
+  });
+});
+
+describe('PracticeEngine — attempted y acompañamiento', () => {
+  it('attempted pasa a true tras una pulsación evaluada en modo espera', () => {
+    const e = new PracticeEngine(song([note(60, 0)]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    expect(e.attempted).toBe(false);
+    e.tick(1);
+    e.onKeyDown(60);
+    expect(e.attempted).toBe(true);
+  });
+
+  it('en modo espera, tick() devuelve [] cuando hand es "both" (sin acompañamiento)', () => {
+    const e = new PracticeEngine(song([note(48, 0.2, 'left'), note(72, 0.5, 'right')]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    expect(e.tick(0.1)).toEqual([]); // antes de cualquier grupo
+    expect(e.tick(1)).toEqual([]);   // el tick que arma el primer grupo tampoco suena nada
+  });
 });

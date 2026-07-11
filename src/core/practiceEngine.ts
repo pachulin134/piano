@@ -37,6 +37,11 @@ export class PracticeEngine {
     this.songDuration = song.duration;
   }
 
+  /** true si hubo al menos una pulsación evaluada (sin esto, score()=100 no significa nada). */
+  get attempted(): boolean {
+    return this.correct + this.wrong > 0;
+  }
+
   get finished(): boolean {
     return this.pending === null
       && this.groupIdx >= this.groups.length
@@ -60,6 +65,9 @@ export class PracticeEngine {
       const nextGroup = this.groups[this.groupIdx];
       if (nextGroup && target >= nextGroup.time) {
         target = nextGroup.time;
+        // Simplificación deliberada de Fase 1: notas repetidas dentro de la
+        // ventana de 50 ms del acorde colapsan en una sola pulsación requerida
+        // (el Set deduplica midis iguales del mismo grupo).
         this.pending = new Set(nextGroup.notes.map(n => n.midi));
       }
     } else {
