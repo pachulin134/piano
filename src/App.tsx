@@ -1,10 +1,45 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LibraryScreen from './screens/LibraryScreen';
 import PracticeScreen from './screens/PracticeScreen';
-import type { Song, SongNote } from './core/types';
-
-const notes: SongNote[] = [60, 60, 67, 67, 69, 69, 67].map((midi, i) =>
-  ({ midi, time: i * 0.5, duration: 0.45, hand: 'right' }));
-const demo: Song = { id: 'demo', title: 'Demo', notes, duration: 3.5, difficulty: 1, bestScore: null };
+import { createSongStore } from './storage/songStore';
+import type { Song } from './core/types';
 
 export default function App() {
-  return <PracticeScreen song={demo} onExit={s => alert(s === null ? 'Salida' : `Puntuación: ${s}%`)} />;
+  const store = useMemo(() => createSongStore(), []);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [current, setCurrent] = useState<Song | null>(null);
+  const currentRef = useRef<Song | null>(null);
+  useEffect(() => { currentRef.current = current; }, [current]);
+
+  useEffect(() => { store.list().then(setSongs); }, [store]);
+
+  const refresh = useCallback(() => store.list().then(setSongs), [store]);
+
+  // Nota: leemos la canción actual desde una ref (no desde el updater de setCurrent)
+  // para mantener handleExit con identidad estable sin depender de `current` y sin
+  // colar un efecto secundario (recordScore) dentro del updater de setState: con
+  // React.StrictMode (activo en main.tsx) los updaters se invocan dos veces en
+  // desarrollo, lo que duplicaría la escritura si el efecto viviera ahí.
+  const handleExit = useCallback((score: number | null) => {
+    const prev = currentRef.current;
+    if (score !== null && prev) {
+      store.recordScore(prev.id, score).then(refresh);
+    }
+    setCurrent(null);
+  }, [store, refresh]);
+
+  const handleAdd = useCallback(async (s: Song) => { await store.add(s); refresh(); }, [store, refresh]);
+  const handleRemove = useCallback(async (id: string) => { await store.remove(id); refresh(); }, [store, refresh]);
+
+  if (current) {
+    return <PracticeScreen song={current} onExit={handleExit} />;
+  }
+  return (
+    <LibraryScreen
+      songs={songs}
+      onAdd={handleAdd}
+      onRemove={handleRemove}
+      onOpen={setCurrent}
+    />
+  );
 }
