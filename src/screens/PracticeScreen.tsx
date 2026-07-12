@@ -6,6 +6,7 @@ import { fitRange } from '../core/keyLayout';
 import { initPiano, playNote } from '../audio/piano';
 import { useMidiInput } from '../input/useMidiInput';
 import { useComputerKeys } from '../input/useComputerKeys';
+import { simplifySong, LEVEL_LABELS, type Level } from '../core/simplifySong';
 import type { Song } from '../core/types';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 export default function PracticeScreen({ song, onExit }: Props) {
   const [config, setConfig] = useState<EngineConfig>({ waitMode: true, speed: 1, hand: 'both' });
+  const [level, setLevel] = useState<Level>('original');
   const [running, setRunning] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [time, setTime] = useState(0);
@@ -24,21 +26,23 @@ export default function PracticeScreen({ song, onExit }: Props) {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const engineRef = useRef<PracticeEngine | undefined>(undefined);
 
-  const [loMidi, hiMidi] = useMemo(() => fitRange(song.notes), [song]);
+  const effectiveSong = useMemo(() => simplifySong(song, level), [song, level]);
+
+  const [loMidi, hiMidi] = useMemo(() => fitRange(effectiveSong.notes), [effectiveSong]);
   const practicedNotes = useMemo(
-    () => config.hand === 'both' ? song.notes : song.notes.filter(n => n.hand === config.hand),
-    [song, config.hand],
+    () => config.hand === 'both' ? effectiveSong.notes : effectiveSong.notes.filter(n => n.hand === config.hand),
+    [effectiveSong, config.hand],
   );
 
   // (Re)crear el motor al cambiar la configuración
   useEffect(() => {
-    engineRef.current = new PracticeEngine(song, config);
+    engineRef.current = new PracticeEngine(effectiveSong, config);
     setTime(0);
     setExpected(new Set());
     setPressed(new Set());
     setWrong(new Set());
     setRunning(false);
-  }, [song, config]);
+  }, [effectiveSong, config]);
 
   useEffect(() => {
     const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
@@ -139,6 +143,10 @@ export default function PracticeScreen({ song, onExit }: Props) {
           <option value="both">Ambas manos</option>
           <option value="right">Mano derecha</option>
           <option value="left">Mano izquierda</option>
+        </select>
+        <select value={level} onChange={e => setLevel(e.target.value as Level)}>
+          {(Object.keys(LEVEL_LABELS) as Level[]).map(l =>
+            <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
         </select>
         <select value={config.speed}
           onChange={e => setConfig(c => ({ ...c, speed: Number(e.target.value) }))}>
