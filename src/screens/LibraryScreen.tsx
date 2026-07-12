@@ -4,7 +4,7 @@ import type { Song } from '../core/types';
 
 interface Props {
   songs: Song[];
-  onAdd: (song: Song) => void;
+  onAdd: (song: Song) => void | Promise<void>;
   onRemove: (id: string) => void;
   onOpen: (song: Song) => void;
 }
@@ -18,7 +18,9 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen }: Props)
     if (!files) return;
     for (const file of Array.from(files)) {
       try {
-        onAdd(parseMidi(await file.arrayBuffer(), file.name.replace(/\.midi?$/i, '')));
+        // await: los add van en serie; en paralelo cada add hace leer-y-escribir
+        // sobre la misma clave y el último pisaría a los demás (se perderían canciones).
+        await onAdd(parseMidi(await file.arrayBuffer(), file.name.replace(/\.midi?$/i, '')));
       } catch (e) {
         setError(`${file.name}: ${e instanceof Error ? e.message : 'error desconocido'}`);
       }
