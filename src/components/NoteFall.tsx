@@ -25,7 +25,9 @@ export default function NoteFall({ notes, currentTime, loMidi, hiMidi, width, he
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const dpr = window.devicePixelRatio || 1;
     const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const pxPerSecond = height / lookAhead;
 
     ctx.clearRect(0, 0, width, height);
@@ -50,5 +52,13 @@ export default function NoteFall({ notes, currentTime, loMidi, hiMidi, width, he
     ctx.fillRect(0, height - 2, width, 2);
   }, [notes, currentTime, keyByMidi, width, height, lookAhead]);
 
-  return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block' }} />;
+  const dpr = window.devicePixelRatio || 1;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width * dpr}
+      height={height * dpr}
+      style={{ width, height, display: 'block' }}
+    />
+  );
 }

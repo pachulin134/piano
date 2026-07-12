@@ -1,27 +1,10 @@
-import { useEffect, useState } from 'react';
-import NoteFall from './components/NoteFall';
-import Keyboard from './components/Keyboard';
-import type { SongNote } from './core/types';
+import PracticeScreen from './screens/PracticeScreen';
+import type { Song, SongNote } from './core/types';
 
-const demo: SongNote[] = [60, 62, 64, 65, 67, 69, 71, 72].map((midi, i) =>
-  ({ midi, time: i * 0.6, duration: 0.5, hand: i % 2 ? 'left' : 'right' }));
+const notes: SongNote[] = [60, 60, 67, 67, 69, 69, 67].map((midi, i) =>
+  ({ midi, time: i * 0.5, duration: 0.45, hand: 'right' }));
+const demo: Song = { id: 'demo', title: 'Demo', notes, duration: 3.5, difficulty: 1, bestScore: null };
 
 export default function App() {
-  const [t, setT] = useState(-4);
-  useEffect(() => {
-    let raf = 0; let last = performance.now();
-    const loop = (now: number) => {
-      setT(v => v + (now - last) / 1000); last = now;
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return (
-    <div>
-      <NoteFall notes={demo} currentTime={t} loMidi={48} hiMidi={83} width={800} height={300} />
-      <Keyboard loMidi={48} hiMidi={83} width={800} height={140}
-        pressed={new Set()} expected={new Set()} onKey={() => {}} />
-    </div>
-  );
+  return <PracticeScreen song={demo} onExit={s => alert(s === null ? 'Salida' : `Puntuación: ${s}%`)} />;
 }

@@ -39,7 +39,13 @@ export function useMidiInput(onKey: KeyHandler): string | null | 'unsupported' {
       a.onstatechange = attach;
     }).catch(() => setDevice('unsupported'));
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (access) {
+        access.onstatechange = null;
+        for (const input of access.inputs.values()) input.onmidimessage = null;
+      }
+    };
   }, [onKey]);
 
   return device;

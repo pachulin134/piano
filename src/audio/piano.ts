@@ -9,7 +9,10 @@ export function initPiano(): Promise<void> {
   if (!loading) {
     context = new AudioContext();
     piano = new SplendidGrandPiano(context);
-    loading = piano.load.then(() => undefined);
+    loading = piano.load.then(() => undefined).catch(err => {
+      loading = undefined;
+      throw err;
+    });
   }
   context?.resume();
   return loading;
