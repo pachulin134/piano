@@ -34,6 +34,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
     engineRef.current = new PracticeEngine(song, config);
     setTime(0);
     setExpected(new Set());
+    setPressed(new Set());
     setRunning(false);
   }, [song, config]);
 
@@ -61,7 +62,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
       const engine = engineRef.current!;
       const dt = (now - last) / 1000;
       last = now;
-      for (const n of engine.tick(dt)) playNote(n.midi, n.duration);
+      for (const n of engine.tick(dt)) playNote(n.midi, n.duration / engine.config.speed);
       setTime(engine.time);
       syncExpected();
       if (engine.finished) {
@@ -87,14 +88,15 @@ export default function PracticeScreen({ song, onExit }: Props) {
     }
   }, [syncExpected]);
 
-  // Entradas: piano MIDI, teclado de ordenador y (vía <Keyboard/>) táctil
-  const midiDevice = useMidiInput(handleKey);
-  useComputerKeys(handleKey);
   // En táctil/teclado no hay piano real que suene: sonar nosotros
   const handleScreenKey = useCallback((midi: number, down: boolean) => {
     if (down) playNote(midi, 0.6);
     handleKey(midi, down);
   }, [handleKey]);
+
+  // Entradas: piano MIDI, teclado de ordenador y (vía <Keyboard/>) táctil
+  const midiDevice = useMidiInput(handleKey);
+  useComputerKeys(handleScreenKey);
 
   const start = async () => {
     try {
@@ -108,7 +110,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
 
   const keyboardH = Math.max(90, Math.round(size.h * 0.22));
   const barH = 52;
-  const fallH = size.h - keyboardH - barH;
+  const fallH = Math.max(0, size.h - keyboardH - barH);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
