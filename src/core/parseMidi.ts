@@ -4,7 +4,7 @@ import { uid } from './uid';
 import type { Hand, Song, SongNote } from './types';
 
 /** Parsea un archivo .mid. Lanza Error con mensaje entendible si es inválido o no tiene notas. */
-export function parseMidi(data: ArrayBuffer, title: string): Song {
+export function parseMidi(data: ArrayBuffer, title: string, id?: string): Song {
   let midi: Midi;
   try {
     midi = new Midi(data);
@@ -29,7 +29,7 @@ export function parseMidi(data: ArrayBuffer, title: string): Song {
 
   const duration = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
   const song: Song = {
-    id: uid(),
+    id: id ?? uid(),
     title,
     notes,
     duration,

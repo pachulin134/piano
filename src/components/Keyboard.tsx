@@ -10,6 +10,7 @@ interface Props {
   expected: Set<number>;  // teclas que pide el modo espera
   wrong: Set<number>;     // teclas falladas (feedback rojo temporal)
   onKey: (midi: number, down: boolean) => void;
+  interactive?: boolean;  // false = solo visualización (p. ej. piano MIDI real)
 }
 
 const COLORS = {
@@ -19,7 +20,7 @@ const COLORS = {
   wrongKey: '#e05555',
 };
 
-export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expected, wrong, onKey }: Props) {
+export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expected, wrong, onKey, interactive = true }: Props) {
   const keys = useMemo(() => keyLayout(loMidi, hiMidi, width, height), [loMidi, hiMidi, width, height]);
   const fill = (midi: number, black: boolean) => {
     if (wrong.has(midi)) return COLORS.wrongKey;
@@ -30,16 +31,17 @@ export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expec
   // Blancas primero para que las negras queden dibujadas encima
   const ordered = [...keys.filter(k => !k.black), ...keys.filter(k => k.black)];
   return (
-    <svg width={width} height={height} style={{ display: 'block', touchAction: 'none' }}>
+    <svg width={width} height={height} style={{ display: 'block', touchAction: interactive ? 'none' : 'auto' }}>
       {ordered.map(k => (
         <rect
           key={k.midi}
           x={k.x} y={0} width={k.w} height={k.h}
           fill={fill(k.midi, k.black)}
           stroke="#101218" strokeWidth={1} rx={3}
-          onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); onKey(k.midi, true); }}
-          onPointerUp={() => onKey(k.midi, false)}
-          onPointerCancel={() => onKey(k.midi, false)}
+          style={{ pointerEvents: interactive ? 'auto' : 'none' }}
+          onPointerDown={interactive ? e => { e.currentTarget.setPointerCapture(e.pointerId); onKey(k.midi, true); } : undefined}
+          onPointerUp={interactive ? () => onKey(k.midi, false) : undefined}
+          onPointerCancel={interactive ? () => onKey(k.midi, false) : undefined}
         />
       ))}
     </svg>

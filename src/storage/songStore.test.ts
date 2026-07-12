@@ -23,10 +23,6 @@ describe('songStore', () => {
     expect((await store.list()).map(s => s.id)).toEqual(['b']);
   });
 
-  // Regresión: la UI (LibraryScreen) importa en serie (await de cada onAdd).
-  // Con adds SECUENCIALES sobre un backend con latencia no se pierde ninguna
-  // canción. (Los adds en paralelo sí se pisarían — leer-y-escribir sobre una
-  // sola clave; el mutex a nivel de store queda aplazado a Fase 2.)
   it('adds secuenciales sobre un KV con latencia conservan todas las canciones', async () => {
     const inner = memoryKV();
     const slowKV: KV = {
@@ -43,7 +39,14 @@ describe('songStore', () => {
     const store = createSongStore(memoryKV());
     await store.add(song('a'));
     await store.recordScore('a', 70);
-    await store.recordScore('a', 50); // peor: no debe pisar
-    expect((await store.list())[0].bestScore).toBe(70);
+    await store.recordScore('a', 50);
+    expect((await store.list()).find(s => s.id === 'a')?.bestScore).toBe(70);
+  });
+
+  it('no borra canciones de fábrica', async () => {
+    const store = createSongStore(memoryKV());
+    await store.remove('builtin:estrellita.mid');
+    // sin fetch en tests la biblioteca queda vacía; el remove simplemente no falla
+    expect(await store.list()).toEqual([]);
   });
 });

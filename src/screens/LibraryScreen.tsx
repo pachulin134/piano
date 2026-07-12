@@ -4,7 +4,7 @@ import type { Song } from '../core/types';
 
 interface Props {
   songs: Song[];
-  onAdd: (song: Song) => void | Promise<void>;
+  onAdd: (song: Song, midi: ArrayBuffer) => void | Promise<void>;
   onRemove: (id: string) => void;
   onOpen: (song: Song) => void;
 }
@@ -20,7 +20,8 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen }: Props)
       try {
         // await: los add van en serie; en paralelo cada add hace leer-y-escribir
         // sobre la misma clave y el último pisaría a los demás (se perderían canciones).
-        await onAdd(parseMidi(await file.arrayBuffer(), file.name.replace(/\.midi?$/i, '')));
+        const buf = await file.arrayBuffer();
+        await onAdd(parseMidi(buf, file.name.replace(/\.midi?$/i, '')), buf);
       } catch (e) {
         setError(`${file.name}: ${e instanceof Error ? e.message : 'error desconocido'}`);
       }
@@ -50,8 +51,10 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen }: Props)
               {s.bestScore !== null && ` · mejor: ${s.bestScore}%`}
             </small>
           </div>
-          <button onClick={() => onOpen(s)}>Practicar</button>
-          <button onClick={() => { if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
+          <button onClick={() => onOpen(s)}>Aprender</button>
+          {!s.id.startsWith('builtin:') && (
+            <button onClick={() => { if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
+          )}
         </div>
       ))}
     </div>
