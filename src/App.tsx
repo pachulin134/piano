@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LibraryScreen from './screens/LibraryScreen';
 import PracticeScreen from './screens/PracticeScreen';
 import { createSongStore } from './storage/songStore';
+import { parseMidi } from './core/parseMidi';
 import type { Song } from './core/types';
 
 export default function App() {
@@ -11,7 +12,26 @@ export default function App() {
   const currentRef = useRef<Song | null>(null);
   useEffect(() => { currentRef.current = current; }, [current]);
 
-  useEffect(() => { store.list().then(setSongs); }, [store]);
+  const seededRef = useRef(false);
+  useEffect(() => {
+    (async () => {
+      if (seededRef.current) return;
+      seededRef.current = true;
+      let list = await store.list();
+      if (list.length === 0) {
+        try {
+          const index: { file: string; title: string }[] =
+            await (await fetch('songs/index.json')).json();
+          for (const item of index) {
+            const buf = await (await fetch(`songs/${item.file}`)).arrayBuffer();
+            await store.add(parseMidi(buf, item.title));
+          }
+          list = await store.list();
+        } catch { /* sin conexión o sin archivos: biblioteca vacía y ya */ }
+      }
+      setSongs(list);
+    })();
+  }, [store]);
 
   const refresh = useCallback(() => store.list().then(setSongs), [store]);
 
