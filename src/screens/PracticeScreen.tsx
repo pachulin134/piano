@@ -20,6 +20,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
   const [time, setTime] = useState(0);
   const [pressed, setPressed] = useState(new Set<number>());
   const [expected, setExpected] = useState(new Set<number>());
+  const [wrong, setWrong] = useState(new Set<number>());
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const engineRef = useRef<PracticeEngine | undefined>(undefined);
 
@@ -35,6 +36,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
     setTime(0);
     setExpected(new Set());
     setPressed(new Set());
+    setWrong(new Set());
     setRunning(false);
   }, [song, config]);
 
@@ -83,7 +85,16 @@ export default function PracticeScreen({ song, onExit }: Props) {
       return next;
     });
     if (down) {
-      engineRef.current?.onKeyDown(midi);
+      const result = engineRef.current?.onKeyDown(midi);
+      if (result === 'wrong') {
+        // Feedback rojo temporal. Si el timeout dispara tras desmontar, el
+        // setState en componente desmontado es un no-op en React 18: sin limpieza.
+        setWrong(prev => new Set(prev).add(midi));
+        window.setTimeout(() => setWrong(prev => {
+          if (!prev.has(midi)) return prev;
+          const next = new Set(prev); next.delete(midi); return next;
+        }), 300);
+      }
       syncExpected();
     }
   }, [syncExpected]);
@@ -104,7 +115,10 @@ export default function PracticeScreen({ song, onExit }: Props) {
       await initPiano();
       setRunning(true);
     } catch {
+      // Sin audio no bloqueamos la práctica: con piano MIDI real no hace falta
+      // que la app suene. El aviso '⚠ Sin sonido' ya queda visible.
       setAudioError(true);
+      setRunning(true);
     }
   };
 
@@ -139,7 +153,7 @@ export default function PracticeScreen({ song, onExit }: Props) {
       <NoteFall notes={practicedNotes} currentTime={time}
         loMidi={loMidi} hiMidi={hiMidi} width={size.w} height={fallH} />
       <Keyboard loMidi={loMidi} hiMidi={hiMidi} width={size.w} height={keyboardH}
-        pressed={pressed} expected={expected} onKey={handleScreenKey} />
+        pressed={pressed} expected={expected} wrong={wrong} onKey={handleScreenKey} />
     </div>
   );
 }

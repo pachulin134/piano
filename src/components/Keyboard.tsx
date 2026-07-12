@@ -8,6 +8,7 @@ interface Props {
   height: number;
   pressed: Set<number>;   // teclas que el usuario mantiene pulsadas
   expected: Set<number>;  // teclas que pide el modo espera
+  wrong: Set<number>;     // teclas falladas (feedback rojo temporal)
   onKey: (midi: number, down: boolean) => void;
 }
 
@@ -15,11 +16,13 @@ const COLORS = {
   white: '#f5f3ee', black: '#1c1e26',
   expectedWhite: '#7fb4ff', expectedBlack: '#3d6db3',
   pressed: '#4caf7d',
+  wrongKey: '#e05555',
 };
 
-export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expected, onKey }: Props) {
+export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expected, wrong, onKey }: Props) {
   const keys = useMemo(() => keyLayout(loMidi, hiMidi, width, height), [loMidi, hiMidi, width, height]);
   const fill = (midi: number, black: boolean) => {
+    if (wrong.has(midi)) return COLORS.wrongKey;
     if (pressed.has(midi)) return COLORS.pressed;
     if (expected.has(midi)) return black ? COLORS.expectedBlack : COLORS.expectedWhite;
     return black ? COLORS.black : COLORS.white;
