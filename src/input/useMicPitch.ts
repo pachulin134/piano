@@ -68,6 +68,7 @@ export function useMicPitch({ active, listening, onNote }: Options): MicState {
     const recent: number[] = [];
     let lastFire = 0;
     let noPitchFrames = 0;
+    let wasListening = false;
 
     (async () => {
       try {
@@ -89,6 +90,14 @@ export function useMicPitch({ active, listening, onNote }: Options): MicState {
 
         const loop = () => {
           if (cancelled) return;
+          // Al empezar a escuchar (fin del demo), olvidamos lo oído hasta ahora
+          // y damos un periodo de gracia: el sonido del propio demo aún resuena
+          // y sin esto se dispararía como si fuera el usuario.
+          if (listeningRef.current && !wasListening) {
+            recent.length = 0;
+            lastFire = performance.now();
+          }
+          wasListening = listeningRef.current;
           analyser.getFloatTimeDomainData(timeBuf);
           analyser.getFloatFrequencyData(freqBuf);
           const rms = signalLevel(timeBuf);

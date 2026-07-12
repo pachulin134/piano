@@ -4,6 +4,7 @@ import {
   detectPitchCombined,
   detectPitchSpectrum,
   hzToMidi,
+  matchExpected,
   nearestExpected,
 } from '../audio/pitchDetect';
 
@@ -96,5 +97,39 @@ describe('pitchDetect', () => {
   it('nearestExpected ignora notas lejanas', () => {
     expect(nearestExpected(64, [60], 1)).toBeNull();
     expect(nearestExpected(61, [60], 1)).toBe(60);
+  });
+});
+
+describe('matchExpected (tolerancia de octava)', () => {
+  it('prefiere la coincidencia exacta', () => {
+    expect(matchExpected(60, [60, 72])).toBe(60);
+  });
+
+  it('acepta la misma nota en otra octava (error típico del detector)', () => {
+    expect(matchExpected(72, [60, 64, 67])).toBe(60); // Do5 detectado, Do4 esperado
+    expect(matchExpected(48, [60])).toBe(60);         // Do3 detectado, Do4 esperado
+  });
+
+  it('rechaza notas de distinta clase aunque estén cerca', () => {
+    expect(matchExpected(61, [60])).toBe(null); // Do# no vale por Do
+    expect(matchExpected(62, [60, 64])).toBe(null);
+  });
+
+  it('con varias octavas esperadas elige la más cercana', () => {
+    expect(matchExpected(60, [48, 84])).toBe(48); // Do4 → Do3 (a 1 octava) antes que Do6 (a 2)
+  });
+});
+
+describe('detectPitchCombined (graves)', () => {
+  it('cuando autocorrelación y espectro discrepan en graves, manda la autocorrelación', () => {
+    const sampleRate = 48000;
+    const fftSize = 8192;
+    // La2 = 110 Hz: onda limpia para la autocorrelación...
+    const samples = sineWave(110, sampleRate, fftSize);
+    // ...pero un espectro engañoso centrado en el 2º armónico (220 Hz)
+    const spectrum = spectrumFromWave(220, sampleRate, fftSize);
+    const result = detectPitchCombined(samples, spectrum, sampleRate, fftSize);
+    expect(result).not.toBeNull();
+    expect(hzToMidi(result!.hz)).toBe(45); // La2, no La3
   });
 });

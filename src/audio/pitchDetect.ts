@@ -28,16 +28,27 @@ export function detectPitch(samples: Float32Array, sampleRate: number): PitchRes
   const maxLag = Math.floor(sampleRate / 65);
   if (maxLag >= n) return null;
 
-  const peaks: { lag: number; nsdf: number }[] = [];
-
-  for (let lag = minLag; lag < maxLag; lag++) {
+  const nsdfAt = (lag: number): number => {
     let corr = 0;
     let norm = 0;
     for (let i = 0; i < n - lag; i++) {
       corr += samples[i] * samples[i + lag];
       norm += samples[i] * samples[i] + samples[i + lag] * samples[i + lag];
     }
-    const nsdf = norm > 0 ? (2 * corr) / norm : 0;
+    return norm > 0 ? (2 * corr) / norm : 0;
+  };
+
+  // Regla de MPM: los desfases pequeños siempre correlacionan alto ("hombro"
+  // inicial), así que solo valen picos posteriores al primer cruce por cero
+  // del NSDF. Sin esto, las notas graves (periodo largo) devuelven una
+  // frecuencia altísima falsa sacada del hombro.
+  let start = minLag;
+  while (start < maxLag && nsdfAt(start) > 0) start++;
+  if (start >= maxLag) return null;
+
+  const peaks: { lag: number; nsdf: number }[] = [];
+  for (let lag = start; lag < maxLag; lag++) {
+    const nsdf = nsdfAt(lag);
     if (nsdf >= 0.42) peaks.push({ lag, nsdf });
   }
 
@@ -45,7 +56,19 @@ export function detectPitch(samples: Float32Array, sampleRate: number): PitchRes
 
   const maxNsdf = Math.max(...peaks.map(p => p.nsdf));
   const strong = peaks.filter(p => p.nsdf >= maxNsdf * 0.9);
-  const fundamental = strong.reduce((a, b) => (a.lag < b.lag ? a : b));
+
+  // El primer pico (tramo contiguo de lags fuertes) es la fundamental; los
+  // tramos posteriores son sus múltiplos. Dentro del pico nos quedamos con el
+  // lag de mejor correlación: el borde izquierdo sesgaría la frecuencia hacia
+  // arriba (hasta un semitono en notas graves).
+  let fundamental = strong[0];
+  let prevLag = strong[0].lag;
+  for (let i = 1; i < strong.length; i++) {
+    const p = strong[i];
+    if (p.lag - prevLag > 3) break;
+    if (p.nsdf > fundamental.nsdf) fundamental = p;
+    prevLag = p.lag;
+  }
 
   return { hz: sampleRate / fundamental.lag, clarity: Math.min(1, fundamental.nsdf) };
 }
@@ -128,7 +151,10 @@ export function detectPitchCombined(
     if (Math.abs(midiAc - midiSp) <= 2) {
       return ac.clarity >= sp.clarity ? ac : sp;
     }
-    return sp;
+    // En graves la FFT no resuelve semitonos (con fftSize 8192 los bins miden
+    // ~6 Hz y bajo ~165 Hz los semitonos distan menos que eso): ahí manda la
+    // autocorrelación, que trabaja en el dominio del tiempo.
+    return ac.hz < 165 ? ac : sp;
   }
   return sp ?? ac;
 }
@@ -136,6 +162,19 @@ export function detectPitchCombined(
 /** @deprecated Usa detectPitch */
 export function detectPitchHz(samples: Float32Array, sampleRate: number): number | null {
   return detectPitch(samples, sampleRate)?.hz ?? null;
+}
+
+/**
+ * Empareja la nota detectada con una esperada admitiendo errores de octava:
+ * los detectores de tono confunden a menudo una nota con su octava (armónicos
+ * del piano), así que si la clase de nota coincide (mismo nombre, p. ej. Do),
+ * damos la esperada por tocada. Prefiere la coincidencia exacta.
+ */
+export function matchExpected(midi: number, expected: number[]): number | null {
+  if (expected.includes(midi)) return midi;
+  const sameClass = expected.filter(e => e % 12 === midi % 12);
+  if (sameClass.length === 0) return null;
+  return sameClass.reduce((a, b) => (Math.abs(b - midi) < Math.abs(a - midi) ? b : a));
 }
 
 /** ¿La nota detectada está cerca de alguna esperada? */

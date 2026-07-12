@@ -4,7 +4,7 @@ import NoteFall from '../components/NoteFall';
 import { PracticeEngine, type EngineConfig } from '../core/practiceEngine';
 import { fitRange } from '../core/keyLayout';
 import { initPiano, playNote } from '../audio/piano';
-import { midiToName, nearestExpected } from '../audio/pitchDetect';
+import { matchExpected, midiToName, nearestExpected } from '../audio/pitchDetect';
 import { useMidiInput } from '../input/useMidiInput';
 import { useMicPitch } from '../input/useMicPitch';
 import { useComputerKeys } from '../input/useComputerKeys';
@@ -179,7 +179,9 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
     const expected = engine.expectedNotes();
     if (expected.length === 0) return;
 
-    const match = nearestExpected(midi, expected, 2);
+    // Coincidencia exacta o de clase de nota (los detectores confunden octavas
+    // con el piano); tocar una tecla equivocada cercana ya NO cuenta como bien.
+    const match = matchExpected(midi, expected);
     if (match !== null) {
       setPressed(prev => new Set(prev).add(match));
       const result = engine.onKeyDown(match);
