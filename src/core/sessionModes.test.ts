@@ -41,6 +41,16 @@ describe('resolveEngineMode', () => {
     expect(r.engine.speed).toBe(0.5);
     expect(r.engine.hand).toBe('right');
   });
+
+  it('tocar + entrada mic no produce micMode (combo inválido del spec)', () => {
+    const r = resolveEngineMode({ ...base, door: 'play', input: 'mic' });
+    expect(r.micMode).toBe(false);
+    expect(r.engine.playAlongMode).toBe(true);
+  });
+  it('aprender sin espera respeta waitMode=false', () => {
+    const r = resolveEngineMode({ ...base, door: 'learn', input: 'screen', waitMode: false });
+    expect(r.engine.waitMode).toBe(false);
+  });
 });
 
 describe('pickDefaultInput', () => {
@@ -52,5 +62,8 @@ describe('pickDefaultInput', () => {
     expect(pickDefaultInput(false, 'learn')).toBe('mic');
     expect(pickDefaultInput(false, 'play')).toBe('screen');
     expect(pickDefaultInput(false, 'listen')).toBe('screen');
+  });
+  it('pickDefaultInput con MIDI también gana en escuchar', () => {
+    expect(pickDefaultInput(true, 'listen')).toBe('midi');
   });
 });

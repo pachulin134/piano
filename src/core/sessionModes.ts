@@ -34,6 +34,7 @@ export function resolveEngineMode(cfg: SessionConfig): { engine: EngineConfig; m
   const engine: EngineConfig = {
     speed: cfg.speed,
     hand: cfg.hand,
+    // inerte fuera de aprender: el motor comprueba listen/guided/playAlong antes que waitMode
     waitMode: cfg.door === 'learn' && !micMode ? cfg.waitMode : true,
     listenMode: cfg.door === 'listen',
     guidedMode: micMode,

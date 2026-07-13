@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LibraryScreen from './screens/LibraryScreen';
-import SongSetupScreen, { type SessionConfig } from './screens/SongSetupScreen';
+import SongSetupScreen from './screens/SongSetupScreen';
 import PracticeScreen from './screens/PracticeScreen';
 import { createSongStore } from './storage/songStore';
+import type { SessionConfig } from './core/sessionModes';
 import type { Song } from './core/types';
 
 interface PracticeSession {
@@ -24,14 +25,18 @@ export default function App() {
 
   const refresh = useCallback(() => store.list().then(setSongs), [store]);
 
-  const handleExit = useCallback((score: number | null) => {
+  /** Guarda la puntuación al terminar la canción, sin salir de la pantalla. */
+  const handleFinish = useCallback((score: number | null) => {
     const prev = sessionRef.current;
     if (score !== null && prev) {
       store.recordScore(prev.song.id, score).then(refresh);
     }
+  }, [store, refresh]);
+
+  const handleExit = useCallback(() => {
     setSession(null);
     setSetupSong(null);
-  }, [store, refresh]);
+  }, []);
 
   const handleAdd = useCallback(async (s: Song, midi: ArrayBuffer) => {
     await store.add(s, midi);
@@ -44,6 +49,7 @@ export default function App() {
       <PracticeScreen
         song={session.song}
         initialConfig={session.config}
+        onFinish={handleFinish}
         onExit={handleExit}
         onChangeMode={() => setSession(null)}
       />

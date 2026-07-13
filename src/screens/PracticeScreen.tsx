@@ -10,26 +10,25 @@ import { useMicPitch } from '../input/useMicPitch';
 import { useComputerKeys } from '../input/useComputerKeys';
 import type { GuidedPhase } from '../core/practiceEngine';
 import { simplifySong, LEVEL_LABELS, type Level } from '../core/simplifySong';
-import type { SessionConfig } from './SongSetupScreen';
+import { resolveEngineMode, INPUT_LABELS, type SessionConfig } from '../core/sessionModes';
+import CoachBar, { type CoachTone } from '../components/CoachBar';
+import Countdown from '../components/Countdown';
+import SettingsSheet from '../components/SettingsSheet';
+import EndOverlay from '../components/EndOverlay';
 import type { Song } from '../core/types';
 
 interface Props {
   song: Song;
   initialConfig: SessionConfig;
-  onExit: (score: number | null) => void;
+  onFinish: (score: number | null) => void; // guarda récord sin salir
+  onExit: () => void;
   onChangeMode: () => void;
 }
 
-export default function PracticeScreen({ song, initialConfig, onExit, onChangeMode }: Props) {
-  const [config, setConfig] = useState<EngineConfig>({
-    waitMode: initialConfig.mode === 'practice' ? initialConfig.waitMode : true,
-    speed: initialConfig.speed,
-    hand: initialConfig.hand,
-    listenMode: initialConfig.mode === 'listen',
-    guidedMode: initialConfig.mode === 'guided' || initialConfig.mode === 'mic',
-    playAlongMode: initialConfig.mode === 'playalong',
-  });
-  const micMode = initialConfig.mode === 'mic';
+export default function PracticeScreen({ song, initialConfig, onFinish, onExit, onChangeMode }: Props) {
+  const resolved = useMemo(() => resolveEngineMode(initialConfig), [initialConfig]);
+  const [config, setConfig] = useState<EngineConfig>(resolved.engine);
+  const micMode = resolved.micMode;
   const [level, setLevel] = useState<Level>(initialConfig.level);
   const [running, setRunning] = useState(false);
   const [audioError, setAudioError] = useState(false);
@@ -43,15 +42,22 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
   const [guidedPhase, setGuidedPhase] = useState<GuidedPhase | null>(null);
   const [micReady, setMicReady] = useState(false);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [countingDown, setCountingDown] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [ended, setEnded] = useState<null | { score: number | null }>(null);
   const engineRef = useRef<PracticeEngine | undefined>(undefined);
   const feedbackTimer = useRef<number | undefined>(undefined);
 
   const listenMode = !!config.listenMode;
   const guidedMode = !!config.guidedMode;
   const playAlongMode = !!config.playAlongMode;
-  const wantsPiano = (guidedMode && !micMode) || playAlongMode;
+  const wantsPiano = playAlongMode;
   const interactive = !listenMode;
   const effectiveSong = useMemo(() => simplifySong(song, level), [song, level]);
+
+  useEffect(() => { document.title = song.title; }, [song.title]);
 
   const [loMidi, hiMidi] = useMemo(() => fitRange(effectiveSong.notes), [effectiveSong]);
   const practicedNotes = useMemo(
@@ -77,6 +83,9 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
     setFeedback(null);
     setLiveScore(null);
     setRunning(false);
+    setStreak(0);
+    setMaxStreak(0);
+    setEnded(null);
   }, [effectiveSong, config]);
 
   useEffect(() => {
@@ -150,9 +159,11 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
       const result = engineRef.current?.onKeyDown(midi);
       if (result === 'correct') {
         showFeedback('✓ ¡Correcto! Sigue así');
+        setStreak(s => { const n = s + 1; setMaxStreak(m => Math.max(m, n)); return n; });
       } else if (result === 'wrong') {
         setWrong(prev => new Set(prev).add(midi));
         showFeedback('✗ Esa nota no es — inténtalo otra vez');
+        setStreak(0);
         window.setTimeout(() => setWrong(prev => {
           if (!prev.has(midi)) return prev;
           const next = new Set(prev); next.delete(midi); return next;
@@ -164,7 +175,7 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
 
   const midiDevice = useMidiInput(interactive && !micMode ? handleKey : () => {});
   const hasMidi = !!midiDevice && midiDevice !== 'unsupported';
-  const screenInput = interactive && (!wantsPiano || !hasMidi);
+  const screenInput = interactive && !micMode && (initialConfig.input === 'screen' || !hasMidi);
 
   const handleScreenKey = useCallback((midi: number, down: boolean) => {
     if (!screenInput) return;
@@ -187,12 +198,14 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
       const result = engine.onKeyDown(match);
       if (result === 'correct') {
         showFeedback(`✓ ¡Bien! Era ${midiToName(match)}`);
+        setStreak(s => { const n = s + 1; setMaxStreak(m => Math.max(m, n)); return n; });
         window.setTimeout(() => setPressed(prev => {
           const next = new Set(prev); next.delete(match); return next;
         }), 300);
       } else if (result === 'wrong') {
         setWrong(prev => new Set(prev).add(match));
         showFeedback('✗ Casi — esa no era la nota');
+        setStreak(0);
         window.setTimeout(() => setWrong(prev => {
           const next = new Set(prev); next.delete(match); return next;
         }), 400);
@@ -246,173 +259,122 @@ export default function PracticeScreen({ song, initialConfig, onExit, onChangeMo
           || engine.config.playAlongMode
           || (engine.config.waitMode && !engine.config.listenMode))
           && engine.attempted;
-        if (scored) onExit(engine.score());
+        const score = scored ? engine.score() : null;
+        setEnded({ score });
+        onFinish(score);
         return;
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onExit, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady]);
+  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady]);
 
   const start = async () => {
     try {
       setAudioError(false);
       await initPiano();
-      setRunning(true);
-      if (micMode) showFeedback('Empezamos — escucha la primera nota');
     } catch {
       setAudioError(true);
-      setRunning(true);
     }
+    setCountingDown(true); // con o sin sonido, se puede practicar
   };
+  const beginAfterCountdown = useCallback(() => {
+    setCountingDown(false);
+    setRunning(true);
+    if (micMode) showFeedback('Empezamos — escucha la primera nota');
+  }, [micMode, showFeedback]);
 
-  const modeBadge = listenMode
-    ? '🎧 Escuchar'
-    : micMode
-      ? '🎤 Micrófono'
-      : guidedMode
-        ? '🎧→🎹 Escuchar y tocar'
-        : playAlongMode
-          ? '🎹 Toca y corrígeme'
-          : '🎹 Practicar';
+  const coach: { text: string; tone: CoachTone; chip: string | null } = (() => {
+    const chip = micMode
+      ? (mic.status === 'active' || mic.status === 'hearing' || mic.status === 'quiet' ? `🎤 señal ${mic.signalPct}%` : null)
+      : listenMode ? '🎧 escuchando'
+      : hasMidi ? `🎹 ${midiDevice}`
+      : screenInput ? `👆 ${INPUT_LABELS.screen}` : null;
 
-  const micBanner = micMode ? (() => {
-    if (mic.status === 'denied') return { text: '⚠ Necesitas permitir el micrófono en el navegador', color: '#e88080' };
-    if (feedback) return { text: feedback, color: feedback.startsWith('✓') ? '#7dcea0' : '#e8a060' };
-    if (!running) return { text: guidedHint ?? 'Pulsa ▶ Empezar — el navegador pedirá permiso de micrófono', color: '#b8bcc8' };
-    if (guidedPhase === 'demo') return { text: guidedHint ?? 'Escucha la nota…', color: '#7fb4ff' };
-    if (guidedPhase === 'repeat' && !micReady) return { text: guidedHint ?? 'Espera un momento…', color: '#e8c060' };
-    if (guidedPhase === 'repeat' && mic.heardMidi !== null) {
-      return {
-        text: `${guidedHint ?? ''} — Escucho: ${midiToName(mic.heardMidi)}`,
-        color: '#7dcea0',
-      };
+    if (audioError) return { text: '⚠ Sin sonido (revisa conexión) — puedes practicar igualmente', tone: 'warn', chip };
+    if (micMode) {
+      if (mic.status === 'denied') return { text: 'Necesitas permitir el micrófono en el navegador', tone: 'err', chip };
+      if (feedback) return { text: feedback, tone: feedback.startsWith('✓') ? 'ok' : 'err', chip };
+      if (!running) return { text: guidedHint ?? 'Pulsa ▶ Empezar — el navegador pedirá permiso de micrófono', tone: 'info', chip };
+      if (guidedPhase === 'demo') return { text: guidedHint ?? 'Escucha la nota… 🎧', tone: 'info', chip };
+      if (guidedPhase === 'repeat' && !micReady) return { text: guidedHint ?? 'Un momento…', tone: 'warn', chip };
+      if (guidedPhase === 'repeat' && mic.heardMidi !== null)
+        return { text: `${guidedHint ?? ''} — escucho: ${midiToName(mic.heardMidi)}`, tone: 'ok', chip };
+      if (guidedPhase === 'repeat' && mic.status === 'hearing')
+        return { text: 'Oigo sonido pero no la nota — toca UNA nota clara y suelta', tone: 'warn', chip };
+      if (guidedPhase === 'repeat' && mic.status === 'quiet')
+        return { text: 'No escucho nada — acerca el portátil al piano', tone: 'warn', chip };
+      return { text: guidedHint ?? '¡Te toca! 🎹', tone: 'ok', chip };
     }
-    if (guidedPhase === 'repeat' && mic.status === 'hearing') {
-      return {
-        text: `${guidedHint ?? ''} — Oigo sonido pero no la nota; toca UNA nota clara y suelta`,
-        color: '#e8c060',
-      };
-    }
-    if (guidedPhase === 'repeat' && mic.status === 'quiet') {
-      return {
-        text: `${guidedHint ?? ''} — No escucho nada (señal ${mic.signalPct}%) — acerca el portátil al piano`,
-        color: '#e8a060',
-      };
-    }
-    if (guidedPhase === 'repeat') return { text: guidedHint ?? 'Toca la nota en tu piano', color: '#7dcea0' };
-    return { text: guidedHint ?? 'Activando micrófono…', color: '#b8bcc8' };
-  })() : null;
-
-  const midiLabel = listenMode
-    ? 'Modo escucha'
-    : micMode
-      ? (liveScore !== null ? `${liveScore}% aciertos` : '')
-    : playAlongMode
-      ? midiDevice === 'unsupported'
-        ? 'Navegador sin MIDI — usa Chrome o Edge'
-        : liveScore !== null
-          ? `${liveScore}% bien${hasMidi ? ' · tu piano' : ' · pantalla'}`
-          : hasMidi
-            ? `Escuchando tu piano · ${midiDevice}`
-            : 'Sin cable: toca en pantalla o A–L'
-    : guidedMode
-      ? midiDevice === 'unsupported'
-        ? 'Navegador sin MIDI — usa Chrome o Edge'
-        : hasMidi
-          ? `${guidedHint ?? 'Piano conectado'} · ${midiDevice}`
-          : (guidedHint ?? 'Sin cable: pantalla o teclas A–L')
-      : audioError
-        ? '⚠ Sin sonido (revisa conexión)'
-        : midiDevice === 'unsupported'
-          ? 'Sin MIDI'
-          : midiDevice ?? 'Piano no conectado';
+    if (feedback) return { text: feedback, tone: feedback.startsWith('✓') ? 'ok' : 'err', chip };
+    if (listenMode) return { text: running ? 'Disfruta — fíjate en los colores de cada mano' : 'Pulsa ▶ para escuchar la canción', tone: 'info', chip };
+    if (!running) return { text: 'Pulsa ▶ Empezar cuando estés en posición', tone: 'info', chip };
+    const names = [...expected].map(midiToName).join(' + ');
+    if (names) return { text: `Toca: ${names} 👇`, tone: 'warn', chip };
+    return { text: '¡Sigue así!', tone: 'ok', chip };
+  })();
 
   const keyboardH = Math.max(90, Math.round(size.h * 0.22));
-  const barH = 52;
-  const micBannerH = micBanner ? 56 : 0;
-  const fallH = Math.max(0, size.h - keyboardH - barH - micBannerH);
+  const barH = 48;
+  const coachH = 46;
+  const fallH = Math.max(0, size.h - keyboardH - barH - coachH);
+  const progressPct = effectiveSong.duration > 0 ? Math.min(100, (time / effectiveSong.duration) * 100) : 0;
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: barH, display: 'flex', gap: 8, alignItems: 'center', padding: '0 10px', flexWrap: 'nowrap', overflowX: 'auto' }}>
-        <button onClick={() => onExit(null)}>← Salir</button>
-        <button onClick={onChangeMode}>Cambiar modo</button>
-        <strong style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</strong>
-        <span style={{
-          fontSize: 12,
-          padding: '4px 8px',
-          borderRadius: 6,
-          background: listenMode ? '#2d4a6e'
-            : micMode ? '#4a2d6e'
-            : guidedMode ? '#5c4a2a'
-            : playAlongMode ? '#1e4d32' : '#2d5e44',
-          whiteSpace: 'nowrap',
-        }}>
-          {modeBadge}
-        </span>
-        <button onClick={running ? () => setRunning(false) : start}>
-          {running ? '⏸ Pausa' : listenMode ? '▶ Escuchar' : '▶ Empezar'}
-        </button>
-        {!listenMode && !micMode && !guidedMode && !playAlongMode && (
-          <label><input type="checkbox" checked={config.waitMode}
-            onChange={e => setConfig(c => ({ ...c, waitMode: e.target.checked }))} /> Espera</label>
-        )}
-        {!listenMode && (
-          <select value={config.hand}
-            onChange={e => setConfig(c => ({ ...c, hand: e.target.value as EngineConfig['hand'] }))}>
-            <option value="both">Ambas manos</option>
-            <option value="right">Mano derecha</option>
-            <option value="left">Mano izquierda</option>
-          </select>
-        )}
-        <select value={level} onChange={e => setLevel(e.target.value as Level)}>
-          {(Object.keys(LEVEL_LABELS) as Level[]).map(l =>
-            <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
-        </select>
-        <select value={config.speed}
-          onChange={e => setConfig(c => ({ ...c, speed: Number(e.target.value) }))}>
-          <option value={0.25}>25%</option><option value={0.5}>50%</option>
-          <option value={0.75}>75%</option><option value={1}>100%</option>
-        </select>
-        {liveScore !== null && (playAlongMode || micMode) && (
-          <span style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: liveScore >= 80 ? '#7dcea0' : liveScore >= 50 ? '#e8c060' : '#e88080',
-          }}>
-            {liveScore}%
-          </span>
-        )}
-        {midiLabel && (
-          <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13, whiteSpace: 'nowrap' }}>
-            {midiLabel}
-          </span>
-        )}
-      </div>
-      {micBanner && (
-        <div style={{
-          height: micBannerH,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '0 16px',
-          background: '#1a1525',
-          borderBottom: '1px solid #3d3152',
-          color: micBanner.color,
-          fontSize: 15,
-          fontWeight: 600,
-          textAlign: 'center',
-        }}>
-          {micBanner.text}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ height: barH, display: 'flex', gap: 10, alignItems: 'center', padding: '0 12px' }}>
+        <button className="btn-ghost" onClick={onExit} style={{ fontSize: 18 }}>✕</button>
+        <div style={{ flex: 1, height: 8, background: 'var(--bg-chip)', borderRadius: 4 }}>
+          <div style={{ width: `${progressPct}%`, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, var(--right-soft), var(--right))' }} />
         </div>
-      )}
-      <NoteFall notes={practicedNotes} currentTime={time}
-        loMidi={loMidi} hiMidi={hiMidi} width={size.w} height={fallH} />
+        {streak > 1 && <span className="chip" style={{ color: 'var(--left)', fontWeight: 800 }}>✓ {streak} seguidas</span>}
+        {liveScore !== null && (playAlongMode || micMode) && (
+          <span className="chip" style={{ fontWeight: 800 }}>{liveScore}%</span>
+        )}
+        <button className="btn-ghost" onClick={() => setShowSettings(true)} style={{ fontSize: 18 }}>⚙</button>
+        <button className="btn-primary" style={{ minHeight: 36, padding: '6px 14px' }}
+          onClick={running ? () => setRunning(false) : start} disabled={countingDown}>
+          {running ? '⏸' : '▶'}
+        </button>
+      </div>
+
+      <CoachBar text={coach.text} tone={coach.tone} chip={coach.chip} />
+
+      <div style={{ position: 'relative' }}>
+        <NoteFall notes={practicedNotes} currentTime={time}
+          loMidi={loMidi} hiMidi={hiMidi} width={size.w} height={fallH} />
+        {countingDown && <Countdown onDone={beginAfterCountdown} />}
+      </div>
       <Keyboard loMidi={loMidi} hiMidi={hiMidi} width={size.w} height={keyboardH}
         pressed={pressed} expected={expected} wrong={wrong} onKey={handleScreenKey}
         interactive={screenInput && !micMode} />
+
+      {showSettings && (
+        <SettingsSheet
+          level={level} speed={config.speed} hand={config.hand} waitMode={config.waitMode}
+          showWaitMode={initialConfig.door === 'learn' && !micMode}
+          showHand={!listenMode}
+          onChange={patch => {
+            if (patch.level !== undefined) setLevel(patch.level);
+            if (patch.speed !== undefined) setConfig(c => ({ ...c, speed: patch.speed! }));
+            if (patch.hand !== undefined) setConfig(c => ({ ...c, hand: patch.hand! }));
+            if (patch.waitMode !== undefined) setConfig(c => ({ ...c, waitMode: patch.waitMode! }));
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {ended && (
+        <EndOverlay
+          score={ended.score}
+          maxStreak={maxStreak}
+          isRecord={ended.score !== null && ended.score > (song.bestScore ?? -1)}
+          onRepeat={() => { setConfig(c => ({ ...c })); void start(); }}
+          onChangeMode={onChangeMode}
+          onLibrary={onExit}
+        />
+      )}
     </div>
   );
 }
