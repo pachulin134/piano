@@ -12,7 +12,7 @@ interface Props {
   lookAhead?: number;    // segundos visibles por delante (default 4)
 }
 
-const HAND_COLORS = { right: '#5c9dff', left: '#4caf7d' } as const;
+const HAND_COLORS = { right: '#e8734a', left: '#4a9e50' } as const;
 
 export default function NoteFall({ notes, currentTime, loMidi, hiMidi, width, height, lookAhead = 4 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,7 +31,10 @@ export default function NoteFall({ notes, currentTime, loMidi, hiMidi, width, he
     const pxPerSecond = height / lookAhead;
 
     ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#181b23';
+    const bg = ctx.createLinearGradient(0, 0, 0, height);
+    bg.addColorStop(0, '#faf8f4');
+    bg.addColorStop(1, '#f2ede4');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
 
     for (const n of notes) {
@@ -45,10 +48,13 @@ export default function NoteFall({ notes, currentTime, loMidi, hiMidi, width, he
       ctx.fillStyle = HAND_COLORS[n.hand];
       ctx.beginPath();
       ctx.roundRect(key.x + 1, yBottom - h, key.w - 2, h, 4);
+      ctx.shadowColor = 'rgba(60, 40, 20, 0.25)';
+      ctx.shadowBlur = 4;
       ctx.fill();
     }
+    ctx.shadowBlur = 0;
     // línea de "ahora"
-    ctx.fillStyle = '#ffffff44';
+    ctx.fillStyle = 'rgba(232, 115, 74, 0.45)';
     ctx.fillRect(0, height - 2, width, 2);
   }, [notes, currentTime, keyByMidi, width, height, lookAhead]);
 
