@@ -10,14 +10,18 @@ interface Props {
   expected: Set<number>;  // teclas que pide el modo espera
   wrong: Set<number>;     // teclas falladas (feedback rojo temporal)
   onKey: (midi: number, down: boolean) => void;
-  interactive?: boolean;  // false = solo visualización (p. ej. piano MIDI real)
+  interactive?: boolean;
 }
 
+const KEY_NAMES = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si'];
+
 const COLORS = {
-  white: '#f5f3ee', black: '#1c1e26',
-  expectedWhite: '#7fb4ff', expectedBlack: '#3d6db3',
-  pressed: '#4caf7d',
-  wrongKey: '#e05555',
+  white: '#ffffff', whiteEdge: '#e5ddd0',
+  black: '#3a352d', blackEdge: '#2b2620',
+  expectedWhite: '#f5a623', expectedBlack: '#c07f10',
+  pressed: '#7bc47f',
+  wrongKey: '#d9534f',
+  labelWhite: '#b0a695', labelExpected: '#7a5200', labelBlack: '#cfc8bd',
 };
 
 export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expected, wrong, onKey, interactive = true }: Props) {
@@ -28,21 +32,37 @@ export default function Keyboard({ loMidi, hiMidi, width, height, pressed, expec
     if (expected.has(midi)) return black ? COLORS.expectedBlack : COLORS.expectedWhite;
     return black ? COLORS.black : COLORS.white;
   };
+  const labelColor = (midi: number, black: boolean) => {
+    if (wrong.has(midi) || pressed.has(midi)) return '#ffffff';
+    if (expected.has(midi)) return COLORS.labelExpected;
+    return black ? COLORS.labelBlack : COLORS.labelWhite;
+  };
   // Blancas primero para que las negras queden dibujadas encima
   const ordered = [...keys.filter(k => !k.black), ...keys.filter(k => k.black)];
+  const showLabels = keys.filter(k => !k.black)[0]?.w >= 18; // en rangos enormes no caben
   return (
-    <svg width={width} height={height} style={{ display: 'block', touchAction: interactive ? 'none' : 'auto' }}>
+    <svg width={width} height={height} style={{ display: 'block', touchAction: 'none', background: '#efe9df' }}>
       {ordered.map(k => (
-        <rect
-          key={k.midi}
-          x={k.x} y={0} width={k.w} height={k.h}
-          fill={fill(k.midi, k.black)}
-          stroke="#101218" strokeWidth={1} rx={3}
-          style={{ pointerEvents: interactive ? 'auto' : 'none' }}
-          onPointerDown={interactive ? e => { e.currentTarget.setPointerCapture(e.pointerId); onKey(k.midi, true); } : undefined}
-          onPointerUp={interactive ? () => onKey(k.midi, false) : undefined}
-          onPointerCancel={interactive ? () => onKey(k.midi, false) : undefined}
-        />
+        <g key={k.midi} className={wrong.has(k.midi) ? 'shake' : undefined}>
+          <rect
+            x={k.x} y={0} width={k.w} height={k.h}
+            fill={fill(k.midi, k.black)}
+            stroke={k.black ? COLORS.blackEdge : COLORS.whiteEdge} strokeWidth={1} rx={4}
+            onPointerDown={interactive ? e => { e.currentTarget.setPointerCapture(e.pointerId); onKey(k.midi, true); } : undefined}
+            onPointerUp={interactive ? () => onKey(k.midi, false) : undefined}
+            onPointerCancel={interactive ? () => onKey(k.midi, false) : undefined}
+          />
+          {showLabels && !k.black && (
+            <text
+              x={k.x + k.w / 2} y={k.h - 6}
+              textAnchor="middle" fontSize={Math.min(11, k.w * 0.42)}
+              fill={labelColor(k.midi, k.black)} fontWeight={expected.has(k.midi) ? 800 : 500}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {KEY_NAMES[k.midi % 12]}
+            </text>
+          )}
+        </g>
       ))}
     </svg>
   );
