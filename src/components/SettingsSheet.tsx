@@ -9,14 +9,15 @@ interface Props {
   /** Enseñar el interruptor de espera solo cuando aplica (aprender sin micrófono). */
   showWaitMode: boolean;
   showHand: boolean;
+  /** Solo en modo libre: interruptor "la app toca las notas". null = no mostrar. */
+  appSound: boolean | null;
+  onAppSound?: (on: boolean) => void;
   onChange: (patch: Partial<{ level: Level; speed: number; hand: EngineConfig['hand']; waitMode: boolean }>) => void;
   onClose: () => void;
 }
 
-const SPEEDS = [0.25, 0.5, 0.75, 1] as const;
-
-/** Hoja inferior de ajustes. Cambiar algo reinicia la canción (lo gestiona el padre). */
-export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, onChange, onClose }: Props) {
+/** Hoja inferior de ajustes. Cambiar nivel/mano reinicia la canción (lo gestiona el padre); velocidad y sonido se aplican al momento. */
+export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, appSound, onAppSound, onChange, onClose }: Props) {
   return (
     <>
       <div className="overlay" onClick={onClose} />
@@ -35,9 +36,13 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ width: 90, color: 'var(--ink-2)' }}>Velocidad</span>
-            <select value={speed} onChange={e => onChange({ speed: Number(e.target.value) })}>
-              {SPEEDS.map(v => <option key={v} value={v}>{v * 100}%</option>)}
-            </select>
+            <input
+              type="range" min={10} max={100} step={5}
+              value={Math.round(speed * 100)}
+              onChange={e => onChange({ speed: Number(e.target.value) / 100 })}
+              style={{ flex: 1 }}
+            />
+            <span style={{ width: 44, fontWeight: 700, textAlign: 'right' }}>{Math.round(speed * 100)}%</span>
           </label>
           {showHand && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -56,7 +61,14 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
               <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>pausa hasta que toques la nota</span>
             </label>
           )}
-          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>Cambiar un ajuste reinicia la canción desde el principio.</p>
+          {appSound !== null && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 90, color: 'var(--ink-2)' }}>Sonido</span>
+              <input type="checkbox" checked={appSound} onChange={e => onAppSound?.(e.target.checked)} />
+              <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>la app toca las notas</span>
+            </label>
+          )}
+          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>Cambiar nivel o mano reinicia la canción; la velocidad y el sonido se aplican al momento.</p>
         </div>
       </div>
     </>

@@ -15,6 +15,7 @@ import CoachBar, { type CoachTone } from '../components/CoachBar';
 import Countdown from '../components/Countdown';
 import SettingsSheet from '../components/SettingsSheet';
 import EndOverlay from '../components/EndOverlay';
+import LoopBar from '../components/LoopBar';
 import type { Song } from '../core/types';
 
 interface Props {
@@ -30,6 +31,11 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   const [config, setConfig] = useState<EngineConfig>(resolved.engine);
   const micMode = resolved.micMode;
   const [level, setLevel] = useState<Level>(initialConfig.level);
+  const [speed, setSpeedState] = useState(resolved.engine.speed);
+  const speedRef = useRef(speed);
+  const [appSound, setAppSound] = useState(initialConfig.appSound ?? true);
+  const [loop, setLoopState] = useState<{ start: number; end: number } | null>(null);
+  const loopRef = useRef(loop);
   const [running, setRunning] = useState(false);
   const [audioError, setAudioError] = useState(false);
   const [time, setTime] = useState(0);
@@ -53,6 +59,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   const listenMode = !!config.listenMode;
   const guidedMode = !!config.guidedMode;
   const playAlongMode = !!config.playAlongMode;
+  const freeMode = !!config.freeMode;
   const interactive = !listenMode;
   const effectiveSong = useMemo(() => simplifySong(song, level), [song, level]);
 
@@ -74,6 +81,8 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
 
   useEffect(() => {
     engineRef.current = new PracticeEngine(effectiveSong, config);
+    engineRef.current.setSpeed(speedRef.current);
+    if (loopRef.current) engineRef.current.setLoop(loopRef.current.start, loopRef.current.end);
     setTime(0);
     setExpected(new Set());
     setPressed(new Set());
@@ -86,6 +95,21 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     setMaxStreak(0);
     setEnded(null);
   }, [effectiveSong, config]);
+
+  // Velocidad viva: se aplica al motor sin recrearlo
+  useEffect(() => {
+    speedRef.current = speed;
+    engineRef.current?.setSpeed(speed);
+  }, [speed]);
+
+  // Bucle: se aplica/limpia sin recrear el motor
+  useEffect(() => {
+    loopRef.current = loop;
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (loop) engine.setLoop(loop.start, loop.end);
+    else engine.clearLoop();
+  }, [loop]);
 
   useEffect(() => {
     const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
@@ -244,9 +268,9 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
       const dt = (now - last) / 1000;
       last = now;
       for (const n of engine.tick(dt)) {
-        const dur = n.duration / engine.config.speed;
-        playNote(n.midi, dur);
-        if (engine.config.listenMode || engine.config.guidedMode) flashKey(n.midi, dur);
+        const dur = n.duration / engine.speed;
+        if (!freeMode || appSound) playNote(n.midi, dur);
+        if (engine.config.listenMode || engine.config.guidedMode || freeMode) flashKey(n.midi, dur);
       }
       setTime(engine.time);
       if (interactive) syncExpected();
@@ -256,7 +280,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
         setRunning(false);
         const scored = (engine.config.guidedMode
           || engine.config.playAlongMode
-          || (engine.config.waitMode && !engine.config.listenMode))
+          || (engine.config.waitMode && !engine.config.listenMode && !engine.config.freeMode))
           && engine.attempted;
         const score = scored ? engine.score() : null;
         setEnded({ score });
@@ -308,6 +332,10 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     }
     if (feedback) return { text: feedback, tone: feedback.startsWith('✓') ? 'ok' : 'err', chip };
     if (listenMode) return { text: running ? 'Disfruta — fíjate en los colores de cada mano' : 'Pulsa ▶ para escuchar la canción', tone: 'info', chip };
+    if (freeMode) return {
+      text: running ? 'Modo libre — toca a tu aire 🎵' : 'Pulsa ▶ y sigue la cascada a tu ritmo',
+      tone: 'info', chip,
+    };
     if (!running) return { text: 'Pulsa ▶ Empezar cuando estés en posición', tone: 'info', chip };
     const names = [...expected].map(midiToName).join(' + ');
     if (names) return { text: `Toca: ${names} 👇`, tone: 'warn', chip };
@@ -317,7 +345,8 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   const keyboardH = Math.max(90, Math.round(size.h * 0.22));
   const barH = 48;
   const coachH = 46;
-  const fallH = Math.max(0, size.h - keyboardH - barH - coachH);
+  const loopH = loop ? 56 : 0;
+  const fallH = Math.max(0, size.h - keyboardH - barH - coachH - loopH);
   const progressPct = effectiveSong.duration > 0 ? Math.min(100, (time / effectiveSong.duration) * 100) : 0;
 
   return (
@@ -331,6 +360,19 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
         {liveScore !== null && (playAlongMode || micMode) && (
           <span className="chip" style={{ fontWeight: 800 }}>{liveScore}%</span>
         )}
+        {!micMode && (
+          <button className="btn-ghost" style={{ fontSize: 16 }}
+            onClick={() => {
+              if (loop) { setLoopState(null); return; }
+              const engine = engineRef.current;
+              const dur = effectiveSong.duration;
+              const a = Math.min(engine?.time ?? 0, Math.max(0, dur - 1));
+              const b = Math.min(dur, a + 8);
+              setLoopState({ start: a, end: b });
+            }}>
+            {loop ? '🔁✓' : '🔁'}
+          </button>
+        )}
         <button className="btn-ghost" onClick={() => setShowSettings(true)} style={{ fontSize: 18 }}>⚙</button>
         <button className="btn-primary" style={{ minHeight: 36, padding: '6px 14px' }}
           onClick={running ? () => setRunning(false) : start} disabled={countingDown}>
@@ -339,6 +381,17 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
       </div>
 
       <CoachBar text={coach.text} tone={coach.tone} chip={coach.chip} />
+
+      {loop && (
+        <LoopBar
+          duration={effectiveSong.duration}
+          start={loop.start} end={loop.end} currentTime={time}
+          onChange={(s, e2) => setLoopState({ start: Math.max(0, s), end: Math.min(effectiveSong.duration, e2) })}
+          onSetAHere={() => setLoopState(l => l && { start: Math.min(time, l.end - 1), end: l.end })}
+          onSetBHere={() => setLoopState(l => l && { start: l.start, end: Math.max(time, l.start + 1) })}
+          onClear={() => setLoopState(null)}
+        />
+      )}
 
       <div style={{ position: 'relative' }}>
         <NoteFall notes={practicedNotes} currentTime={time}
@@ -351,12 +404,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
 
       {showSettings && (
         <SettingsSheet
-          level={level} speed={config.speed} hand={config.hand} waitMode={config.waitMode}
+          level={level} speed={speed} hand={config.hand} waitMode={config.waitMode}
           showWaitMode={initialConfig.door === 'learn' && !micMode}
-          showHand={!listenMode}
+          showHand={!listenMode && !freeMode}
+          appSound={freeMode ? appSound : null}
+          onAppSound={setAppSound}
           onChange={patch => {
             if (patch.level !== undefined) setLevel(patch.level);
-            if (patch.speed !== undefined) setConfig(c => ({ ...c, speed: patch.speed! }));
+            if (patch.speed !== undefined) setSpeedState(patch.speed);
             if (patch.hand !== undefined) setConfig(c => ({ ...c, hand: patch.hand! }));
             if (patch.waitMode !== undefined) setConfig(c => ({ ...c, waitMode: patch.waitMode! }));
           }}

@@ -14,9 +14,9 @@ interface Props {
   onStart: (config: SessionConfig) => void;
 }
 
-const SPEEDS = [0.25, 0.5, 0.75, 1] as const;
 const DOOR_COLORS: Record<Door, { border: string; bg: string }> = {
   listen: { border: 'var(--listen)', bg: 'var(--listen-pale)' },
+  follow: { border: '#b48ead', bg: '#f3e3f5' },
   learn: { border: 'var(--right-soft)', bg: 'var(--right-pale)' },
   play: { border: 'var(--left-soft)', bg: 'var(--left-pale)' },
 };
@@ -28,6 +28,7 @@ export default function SongSetupScreen({ song, onBack, onStart }: Props) {
   const [level, setLevel] = useState<Level>('original');
   const [speed, setSpeed] = useState(1);
   const [hand, setHand] = useState<EngineConfig['hand']>('both');
+  const [appSound, setAppSound] = useState(true);
   const midiDevice = useMidiInput(() => {});
   const hasMidi = !!midiDevice && midiDevice !== 'unsupported';
 
@@ -39,7 +40,7 @@ export default function SongSetupScreen({ song, onBack, onStart }: Props) {
   }, [door, input]);
 
   function start() {
-    onStart({ door, input: effectiveInput, level, speed, hand, waitMode: true });
+    onStart({ door, input: effectiveInput, level, speed, hand, waitMode: true, appSound });
   }
 
   const availableInputs: InputKind[] = [
@@ -116,6 +117,13 @@ export default function SongSetupScreen({ song, onBack, onStart }: Props) {
           </p>
         )}
 
+        {door === 'follow' && (
+          <label className="chip" style={{ marginBottom: 10, cursor: 'pointer' }}>
+            <input type="checkbox" checked={appSound} onChange={e => setAppSound(e.target.checked)} />
+            🔊 La app toca las notas (apágalo para tocar solo tú)
+          </label>
+        )}
+
         <div className="card" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
           <label>Nivel{' '}
             <select value={level} onChange={e => setLevel(e.target.value as Level)}>
@@ -123,10 +131,14 @@ export default function SongSetupScreen({ song, onBack, onStart }: Props) {
                 <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
             </select>
           </label>
-          <label>Velocidad{' '}
-            <select value={speed} onChange={e => setSpeed(Number(e.target.value))}>
-              {SPEEDS.map(v => <option key={v} value={v}>{v * 100}%</option>)}
-            </select>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Velocidad
+            <input
+              type="range" min={10} max={100} step={5}
+              value={Math.round(speed * 100)}
+              onChange={e => setSpeed(Number(e.target.value) / 100)}
+            />
+            <span style={{ fontWeight: 700 }}>{Math.round(speed * 100)}%</span>
           </label>
           {door !== 'listen' && (
             <label>Mano{' '}
