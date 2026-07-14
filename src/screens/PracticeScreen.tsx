@@ -9,7 +9,7 @@ import { useMidiInput } from '../input/useMidiInput';
 import { useMicPitch } from '../input/useMicPitch';
 import { useComputerKeys } from '../input/useComputerKeys';
 import type { GuidedPhase } from '../core/practiceEngine';
-import { simplifySong, LEVEL_LABELS, type Level } from '../core/simplifySong';
+import { simplifySong, type Level } from '../core/simplifySong';
 import { resolveEngineMode, INPUT_LABELS, type SessionConfig } from '../core/sessionModes';
 import CoachBar, { type CoachTone } from '../components/CoachBar';
 import Countdown from '../components/Countdown';
@@ -53,7 +53,6 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   const listenMode = !!config.listenMode;
   const guidedMode = !!config.guidedMode;
   const playAlongMode = !!config.playAlongMode;
-  const wantsPiano = playAlongMode;
   const interactive = !listenMode;
   const effectiveSong = useMemo(() => simplifySong(song, level), [song, level]);
 
