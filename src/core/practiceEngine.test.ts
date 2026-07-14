@@ -303,6 +303,15 @@ describe('PracticeEngine — bucle A-B', () => {
     expect(e.correct).toBe(2);
   });
 
+  it('en espera: un tick gigante no salta el grupo dentro del bucle', () => {
+    const e = new PracticeEngine(song([note(60, 0.6), note(62, 3)]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    e.setLoop(0.5, 2);
+    e.tick(5); // dt enorme (pestaña en segundo plano)
+    expect(e.expectedNotes()).toEqual([60]); // el grupo se pide, no se salta
+    expect(e.time).toBeCloseTo(0.6, 5);
+  });
+
   it('freeMode con bucle también salta', () => {
     const e = new PracticeEngine(song([note(60, 1)]),
       { waitMode: true, speed: 1, hand: 'both', freeMode: true });

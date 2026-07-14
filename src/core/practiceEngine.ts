@@ -156,9 +156,12 @@ export class PracticeEngine {
     let target = this.time + dtSeconds * this._speed;
 
     if (this.loop && target >= this.loop.end) {
-      const toPlay = this.collectAccompaniment(this.loop.end);
-      this.seekTo(this.loop.start);
-      return toPlay;
+      const nextGroup = this.config.waitMode ? this.groups[this.groupIdx] : undefined;
+      if (!nextGroup || nextGroup.time >= this.loop.end) {
+        const toPlay = this.collectAccompaniment(this.loop.end);
+        this.seekTo(this.loop.start);
+        return toPlay;
+      }
     }
 
     if (this.config.waitMode) {
