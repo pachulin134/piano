@@ -292,7 +292,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady]);
+  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound]);
 
   const start = async () => {
     try {

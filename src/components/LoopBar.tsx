@@ -32,12 +32,17 @@ export default function LoopBar({ duration, start, end, currentTime, onChange, o
         if (which === 'a') onChange(Math.min(t, end - MIN_GAP), end);
         else onChange(start, Math.max(t, start + MIN_GAP));
       };
+      // pointercancel además de pointerup: un gesto del sistema en iOS puede
+      // cancelar el arrastre sin disparar pointerup, y sin esto los listeners
+      // quedarían colgados y el tirador se "pegaría" al dedo.
       const up = () => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
       };
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
     };
   }
 
