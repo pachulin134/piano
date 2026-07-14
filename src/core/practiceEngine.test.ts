@@ -218,3 +218,97 @@ describe('PracticeEngine — modo play-along (toca y corrígeme)', () => {
     expect(e.finished).toBe(true);
   });
 });
+
+describe('PracticeEngine — setSpeed en vivo', () => {
+  it('cambia el ritmo sin reiniciar y con clamp', () => {
+    const e = new PracticeEngine(song([note(60, 10)]),
+      { waitMode: false, speed: 1, hand: 'both' });
+    e.tick(1);
+    expect(e.time).toBeCloseTo(1, 5);
+    e.setSpeed(0.5);
+    e.tick(1);
+    expect(e.time).toBeCloseTo(1.5, 5); // no se reinició, y va a la mitad
+    expect(e.speed).toBe(0.5);
+    e.setSpeed(99);
+    expect(e.speed).toBe(2);    // clamp superior
+    e.setSpeed(0);
+    expect(e.speed).toBe(0.05); // clamp inferior
+  });
+});
+
+describe('PracticeEngine — freeMode', () => {
+  it('avanza continuo, devuelve las notas que cruzan y nunca evalúa', () => {
+    const e = new PracticeEngine(song([note(60, 0.5), note(62, 1.5)]),
+      { waitMode: true, speed: 1, hand: 'both', freeMode: true });
+    const played = e.tick(1);
+    expect(played.map(n => n.midi)).toEqual([60]); // cruzó la primera
+    expect(e.time).toBeCloseTo(1, 5);              // sin congelarse (waitMode inerte)
+    expect(e.onKeyDown(60)).toBe('ignored');
+    expect(e.attempted).toBe(false);
+    expect(e.expectedNotes()).toEqual([]);
+    e.tick(5);
+    expect(e.finished).toBe(true);
+  });
+});
+
+describe('PracticeEngine — bucle A-B', () => {
+  it('en continuo: al llegar a B salta a A y las notas se repiten', () => {
+    const e = new PracticeEngine(song([note(48, 1, 'left'), note(50, 3, 'left')]),
+      { waitMode: false, speed: 1, hand: 'right' }); // izquierda = acompañamiento
+    e.setLoop(0.5, 2);
+    e.tick(1.2); // llega a 1.2: suena la nota de t=1
+    expect(e.time).toBeCloseTo(1.2, 5);
+    e.tick(1);   // target 2.2 >= B(2) → salta a A(0.5)
+    expect(e.time).toBeCloseTo(0.5, 5);
+    const again = e.tick(1); // 0.5→1.5: la nota de t=1 vuelve a sonar
+    expect(again.map(n => n.midi)).toEqual([48]);
+    expect(e.finished).toBe(false);
+  });
+
+  it('en espera: el salto limpia la nota pendiente y vuelve a pedir desde A', () => {
+    const e = new PracticeEngine(song([note(60, 1), note(62, 3)]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    e.setLoop(0.5, 2.5);
+    e.tick(2); // se congela en el grupo de t=1
+    expect(e.expectedNotes()).toEqual([60]);
+    e.onKeyDown(60);
+    e.tick(2); // target 3 >= B(2.5) → salta a A, pendiente limpio
+    expect(e.time).toBeCloseTo(0.5, 5);
+    expect(e.expectedNotes()).toEqual([]);
+    e.tick(1); // vuelve a congelarse en el grupo de t=1
+    expect(e.expectedNotes()).toEqual([60]); // el mismo grupo se pide otra vez
+  });
+
+  it('normaliza argumentos invertidos y fuera de rango, y clearLoop reanuda', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: false, speed: 1, hand: 'both' });
+    e.setLoop(50, -3); // invertido y fuera de [0, duración]
+    e.tick(0.2);
+    // normalizado a [0, duración]: nunca sale del rango
+    expect(e.time).toBeLessThanOrEqual(1.4);
+    e.clearLoop();
+    e.tick(10);
+    expect(e.finished).toBe(true);
+  });
+
+  it('en play-along: al saltar, las notas del tramo se pueden volver a acertar', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: true, speed: 1, hand: 'both', playAlongMode: true });
+    e.setLoop(0.5, 2);
+    e.tick(1); // t=1: la nota está en ventana
+    expect(e.onKeyDown(60)).toBe('correct');
+    e.tick(1.2); // target 2.2 >= B → salta a A(0.5)
+    e.tick(0.5); // t=1 otra vez: en ventana de nuevo
+    expect(e.onKeyDown(60)).toBe('correct'); // se puede repetir el acierto
+    expect(e.correct).toBe(2);
+  });
+
+  it('freeMode con bucle también salta', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: true, speed: 1, hand: 'both', freeMode: true });
+    e.setLoop(0, 1.2);
+    e.tick(1.5); // target >= B → salta a 0
+    expect(e.time).toBeCloseTo(0, 5);
+    expect(e.finished).toBe(false);
+  });
+});

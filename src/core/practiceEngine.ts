@@ -8,6 +8,7 @@ export interface EngineConfig {
   listenMode?: boolean;   // la app toca la canción sola (sin interacción)
   guidedMode?: boolean;   // demo de cada grupo y luego el usuario lo repite
   playAlongMode?: boolean; // el usuario toca a ritmo; la app evalúa por MIDI en tiempo real
+  freeMode?: boolean;     // la canción avanza sola; el usuario toca sin evaluación
 }
 
 const PLAY_ALONG_BEFORE = 0.2;  // segundos musicales de anticipación permitida
@@ -38,9 +39,12 @@ export class PracticeEngine {
   private targets: SongNote[] = [];      // notas que evalúa el modo play-along
   private hitKeys = new Set<string>();
   private readonly songDuration: number;
+  private _speed: number;
+  private loop: { start: number; end: number } | null = null;
 
   constructor(song: Song, readonly config: EngineConfig) {
-    if (config.listenMode) {
+    this._speed = config.speed;
+    if (config.listenMode || config.freeMode) {
       this.practiced = [...song.notes];
       this.accompaniment = [];
       this.groups = [];
@@ -64,6 +68,7 @@ export class PracticeEngine {
   }
 
   get finished(): boolean {
+    if (this.loop) return false;
     if (this.config.listenMode) {
       return this.time >= this.songDuration
         && this.practicedIdx >= this.practiced.length;
@@ -99,19 +104,15 @@ export class PracticeEngine {
 
   /** Avanza dt segundos reales. Devuelve las notas que la app debe sonar. */
   tick(dtSeconds: number): SongNote[] {
-    if (this.config.listenMode) {
-      const target = Math.min(
-        this.time + dtSeconds * this.config.speed,
-        this.songDuration,
-      );
-      const toPlay: SongNote[] = [];
-      while (
-        this.practicedIdx < this.practiced.length &&
-        this.practiced[this.practicedIdx].time <= target
-      ) {
-        toPlay.push(this.practiced[this.practicedIdx]);
-        this.practicedIdx += 1;
+    if (this.config.listenMode || this.config.freeMode) {
+      const raw = this.time + dtSeconds * this._speed;
+      if (this.loop && raw >= this.loop.end) {
+        const toPlay = this.collectPracticed(this.loop.end);
+        this.seekTo(this.loop.start);
+        return toPlay;
       }
+      const target = Math.min(raw, this.songDuration);
+      const toPlay = this.collectPracticed(target);
       this.time = target;
       return toPlay;
     }
@@ -138,25 +139,27 @@ export class PracticeEngine {
     }
 
     if (this.config.playAlongMode) {
-      const target = Math.min(
-        this.time + dtSeconds * this.config.speed,
-        this.songDuration,
-      );
-      const toPlay: SongNote[] = [];
-      while (
-        this.accompanimentIdx < this.accompaniment.length &&
-        this.accompaniment[this.accompanimentIdx].time <= target
-      ) {
-        toPlay.push(this.accompaniment[this.accompanimentIdx]);
-        this.accompanimentIdx += 1;
+      const raw = this.time + dtSeconds * this._speed;
+      if (this.loop && raw >= this.loop.end) {
+        const toPlay = this.collectAccompaniment(this.loop.end);
+        this.seekTo(this.loop.start);
+        return toPlay;
       }
+      const target = Math.min(raw, this.songDuration);
+      const toPlay = this.collectAccompaniment(target);
       this.time = target;
       return toPlay;
     }
 
     if (this.pending) return []; // congelado esperando al usuario
 
-    let target = this.time + dtSeconds * this.config.speed;
+    let target = this.time + dtSeconds * this._speed;
+
+    if (this.loop && target >= this.loop.end) {
+      const toPlay = this.collectAccompaniment(this.loop.end);
+      this.seekTo(this.loop.start);
+      return toPlay;
+    }
 
     if (this.config.waitMode) {
       const nextGroup = this.groups[this.groupIdx];
@@ -173,21 +176,38 @@ export class PracticeEngine {
       }
     }
 
-    const toPlay: SongNote[] = [];
-    while (
-      this.accompanimentIdx < this.accompaniment.length &&
-      this.accompaniment[this.accompanimentIdx].time <= target
-    ) {
-      toPlay.push(this.accompaniment[this.accompanimentIdx]);
-      this.accompanimentIdx += 1;
-    }
+    const toPlay = this.collectAccompaniment(target);
 
     this.time = Math.min(target, this.songDuration);
     return toPlay;
   }
 
+  private collectPracticed(upTo: number): SongNote[] {
+    const toPlay: SongNote[] = [];
+    while (
+      this.practicedIdx < this.practiced.length &&
+      this.practiced[this.practicedIdx].time <= upTo
+    ) {
+      toPlay.push(this.practiced[this.practicedIdx]);
+      this.practicedIdx += 1;
+    }
+    return toPlay;
+  }
+
+  private collectAccompaniment(upTo: number): SongNote[] {
+    const toPlay: SongNote[] = [];
+    while (
+      this.accompanimentIdx < this.accompaniment.length &&
+      this.accompaniment[this.accompanimentIdx].time <= upTo
+    ) {
+      toPlay.push(this.accompaniment[this.accompanimentIdx]);
+      this.accompanimentIdx += 1;
+    }
+    return toPlay;
+  }
+
   onKeyDown(midi: number): KeyResult {
-    if (this.config.listenMode) return 'ignored';
+    if (this.config.listenMode || this.config.freeMode) return 'ignored';
     if (this.config.guidedMode && this.guidedStep === 'demo') return 'ignored';
 
     if (this.config.playAlongMode) {
@@ -226,6 +246,44 @@ export class PracticeEngine {
     return total === 0 ? 100 : Math.round((this.correct / total) * 100);
   }
 
+  /** Velocidad actual (0.05–2). */
+  get speed(): number {
+    return this._speed;
+  }
+
+  /** Cambia el ritmo en vivo, sin reiniciar la canción. */
+  setSpeed(v: number): void {
+    this._speed = Math.min(2, Math.max(0.05, v));
+  }
+
+  /** Activa el bucle A-B (normaliza: intercambia si vienen invertidos y recorta a [0, duración]). */
+  setLoop(startSec: number, endSec: number): void {
+    let a = Math.min(startSec, endSec);
+    let b = Math.max(startSec, endSec);
+    a = Math.max(0, Math.min(a, this.songDuration));
+    b = Math.max(0, Math.min(b, this.songDuration));
+    if (b - a < 0.5) return; // tramo degenerado: se ignora
+    this.loop = { start: a, end: b };
+  }
+
+  clearLoop(): void {
+    this.loop = null;
+  }
+
+  /** Recoloca el reloj y todos los índices internos en el instante t. */
+  private seekTo(t: number): void {
+    this.time = t;
+    this.pending = null;
+    this.groupIdx = this.groups.findIndex(g => g.time >= t);
+    if (this.groupIdx === -1) this.groupIdx = this.groups.length;
+    this.accompanimentIdx = this.accompaniment.findIndex(n => n.time >= t);
+    if (this.accompanimentIdx === -1) this.accompanimentIdx = this.accompaniment.length;
+    this.practicedIdx = this.practiced.findIndex(n => n.time >= t);
+    if (this.practicedIdx === -1) this.practicedIdx = this.practiced.length;
+    // Las dianas del play-along del tramo vuelven a estar disponibles
+    this.hitKeys = new Set([...this.hitKeys].filter(k => Number(k.split('-')[1]) < t));
+  }
+
   private beginGuidedGroup(): SongNote[] {
     const group = this.groups[this.groupIdx];
     this.time = group.time;
@@ -241,7 +299,7 @@ export class PracticeEngine {
     toPlay.push(...group.notes);
 
     const longest = Math.max(...group.notes.map(n => n.duration), 0.35);
-    this.demoLeft = longest / this.config.speed;
+    this.demoLeft = longest / this._speed;
     this.guidedStep = 'demo';
     return toPlay;
   }
