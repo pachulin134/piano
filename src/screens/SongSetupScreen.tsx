@@ -140,7 +140,7 @@ export default function SongSetupScreen({ song, onBack, onStart }: Props) {
             />
             <span style={{ fontWeight: 700 }}>{Math.round(speed * 100)}%</span>
           </label>
-          {door !== 'listen' && (
+          {door !== 'listen' && door !== 'follow' && (
             <label>Mano{' '}
               <select value={hand} onChange={e => setHand(e.target.value as EngineConfig['hand'])}>
                 <option value="both">Ambas</option>

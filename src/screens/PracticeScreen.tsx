@@ -67,10 +67,10 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
 
   const [loMidi, hiMidi] = useMemo(() => fitRange(effectiveSong.notes), [effectiveSong]);
   const practicedNotes = useMemo(
-    () => listenMode || guidedMode || playAlongMode || config.hand === 'both'
+    () => listenMode || guidedMode || playAlongMode || freeMode || config.hand === 'both'
       ? effectiveSong.notes
       : effectiveSong.notes.filter(n => n.hand === config.hand),
-    [effectiveSong, config.hand, listenMode, guidedMode, playAlongMode],
+    [effectiveSong, config.hand, listenMode, guidedMode, playAlongMode, freeMode],
   );
 
   const showFeedback = useCallback((msg: string, ms = 2000) => {
@@ -265,7 +265,8 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     let last = performance.now();
     const loop = (now: number) => {
       const engine = engineRef.current!;
-      const dt = (now - last) / 1000;
+      // tope: una pestaña en segundo plano acumula segundos y los soltaría de golpe
+      const dt = Math.min((now - last) / 1000, 0.25);
       last = now;
       for (const n of engine.tick(dt)) {
         const dur = n.duration / engine.speed;
