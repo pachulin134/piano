@@ -67,3 +67,18 @@ describe('pickDefaultInput', () => {
     expect(pickDefaultInput(true, 'listen')).toBe('midi');
   });
 });
+
+describe('puerta follow (modo libre)', () => {
+  it('seguir → freeMode, sin evaluación ni mic', () => {
+    const r = resolveEngineMode({ ...base, door: 'follow' });
+    expect(r.engine.freeMode).toBe(true);
+    expect(r.micMode).toBe(false);
+    expect(r.engine.listenMode).toBeFalsy();
+    expect(r.engine.guidedMode).toBeFalsy();
+    expect(r.engine.playAlongMode).toBeFalsy();
+  });
+  it('pickDefaultInput en follow: midi si hay, si no pantalla (nunca mic)', () => {
+    expect(pickDefaultInput(true, 'follow')).toBe('midi');
+    expect(pickDefaultInput(false, 'follow')).toBe('screen');
+  });
+});

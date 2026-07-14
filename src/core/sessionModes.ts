@@ -2,7 +2,7 @@ import type { EngineConfig } from './practiceEngine';
 import type { Level } from './simplifySong';
 
 /** Las "tres puertas" que ve el usuario. */
-export type Door = 'listen' | 'learn' | 'play';
+export type Door = 'listen' | 'follow' | 'learn' | 'play';
 /** Cómo escucha la app al usuario. */
 export type InputKind = 'midi' | 'mic' | 'screen';
 
@@ -14,10 +14,13 @@ export interface SessionConfig {
   hand: EngineConfig['hand'];
   /** Solo relevante en aprender sin micrófono; por defecto true. */
   waitMode: boolean;
+  /** Solo puerta follow: la app suena las notas (default true). */
+  appSound?: boolean;
 }
 
 export const DOOR_LABELS: Record<Door, { icon: string; title: string; hint: string }> = {
   listen: { icon: '🎧', title: 'Escuchar', hint: 'Mira y escucha cómo suena' },
+  follow: { icon: '👀', title: 'Seguir la canción', hint: 'Avanza sola; tú tocas sin corrección' },
   learn: { icon: '🪜', title: 'Aprender paso a paso', hint: 'Nota a nota, a tu ritmo' },
   play: { icon: '🎹', title: 'Tocar con la canción', hint: 'A ritmo real, como un concierto' },
 };
@@ -39,6 +42,7 @@ export function resolveEngineMode(cfg: SessionConfig): { engine: EngineConfig; m
     listenMode: cfg.door === 'listen',
     guidedMode: micMode,
     playAlongMode: cfg.door === 'play',
+    freeMode: cfg.door === 'follow',
   };
   return { engine, micMode };
 }
