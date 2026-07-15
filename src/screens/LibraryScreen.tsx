@@ -7,6 +7,7 @@ interface Props {
   onAdd: (song: Song, midi: ArrayBuffer) => void | Promise<void>;
   onRemove: (id: string) => void;
   onOpen: (song: Song) => void;
+  onBack?: () => void;
 }
 
 const SONG_ICONS = ['🎵', '🎼', '🎹', '🎶', '🎷', '🌙', '⭐', '🎺'];
@@ -18,7 +19,7 @@ function songIcon(id: string): { icon: string; bg: string } {
   return { icon: SONG_ICONS[h % SONG_ICONS.length], bg: ICON_BGS[h % ICON_BGS.length] };
 }
 
-export default function LibraryScreen({ songs, onAdd, onRemove, onOpen }: Props) {
+export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -48,6 +49,7 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen }: Props)
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
         <header style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {onBack && <button className="btn-ghost" onClick={onBack} style={{ fontSize: 18 }}>←</button>}
             <div style={{ flex: 1 }}>
               <h1 style={{ fontSize: 24, fontWeight: 800 }}>¡Hola! 👋</h1>
               <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>
