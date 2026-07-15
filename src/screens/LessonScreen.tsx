@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import TeachStep from '../components/lesson/TeachStep';
 import PlayStep from '../components/lesson/PlayStep';
 import ChooseStep from '../components/lesson/ChooseStep';
-import EndOverlay from '../components/EndOverlay';
 import type { Lesson } from '../core/theory/types';
 
 interface Props {
@@ -49,12 +48,17 @@ export default function LessonScreen({ lesson, hasNext, onCompleted, onNextLesso
         {step.kind === 'choose' && <ChooseStep step={step} onDone={advance} />}
       </div>
       {done && (
-        <EndOverlay
-          score={null} maxStreak={0} isRecord={false}
-          onRepeat={hasNext ? onNextLesson : onExit}
-          onChangeMode={onExit}
-          onLibrary={onExit}
-        />
+        <div className="overlay">
+          <div className="card pop" style={{ width: 'min(92vw, 380px)', textAlign: 'center', padding: 24 }}>
+            <div style={{ fontSize: 40 }}>🎉</div>
+            <h2 style={{ fontSize: 22, margin: '8px 0 2px' }}>¡Lección completada!</h2>
+            <p style={{ color: 'var(--ink-3)', marginBottom: 18 }}>{lesson.title}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {hasNext && <button className="btn-primary" onClick={onNextLesson}>Siguiente lección →</button>}
+              <button className={hasNext ? '' : 'btn-primary'} onClick={onExit}>Volver al sendero</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

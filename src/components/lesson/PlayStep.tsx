@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import Keyboard from '../Keyboard';
-import { playNote } from '../../audio/piano';
+import { initPiano, playNote } from '../../audio/piano';
 import { matchExpected } from '../../audio/pitchDetect';
 import type { StepPlay } from '../../core/theory/types';
 
@@ -15,7 +15,9 @@ export default function PlayStep({ step, width, kbHeight, onDone }: Props) {
 
   const onKey = (midi: number, down: boolean) => {
     if (!down) return;
-    playNote(midi, 0.6);
+    // el navegador solo deja crear/activar el audio tras un gesto del usuario:
+    // este toque de tecla es ese gesto, así que suena aunque no se pulsara "Escuchar".
+    void initPiano().then(() => playNote(midi, 0.6)).catch(() => {});
     const remaining = target.filter(k => !hit.has(k));
     const match = step.anyOctave ? matchExpected(midi, remaining) : (remaining.includes(midi) ? midi : null);
     if (match !== null) {

@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { StepChoose } from '../../core/theory/types';
 
 interface Props { step: StepChoose; onDone: () => void }
 
 export default function ChooseStep({ step, onDone }: Props) {
   const [picked, setPicked] = useState<number | null>(null);
+  // Con dos preguntas seguidas React reutiliza el componente: sin esto, el color
+  // de la respuesta anterior se arrastraría a la nueva pregunta.
+  useEffect(() => setPicked(null), [step]);
   const choose = (i: number) => {
     setPicked(i);
     if (i === step.answer) window.setTimeout(onDone, 500);
