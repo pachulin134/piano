@@ -16,6 +16,7 @@ import Countdown from '../components/Countdown';
 import SettingsSheet from '../components/SettingsSheet';
 import EndOverlay from '../components/EndOverlay';
 import LoopBar from '../components/LoopBar';
+import TimeBar from '../components/TimeBar';
 import type { Song } from '../core/types';
 
 interface Props {
@@ -55,6 +56,8 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   const [ended, setEnded] = useState<null | { score: number | null }>(null);
   const engineRef = useRef<PracticeEngine | undefined>(undefined);
   const feedbackTimer = useRef<number | undefined>(undefined);
+  const lastTimeRef = useRef(0);
+  const songIdRef = useRef(song.id);
 
   const listenMode = !!config.listenMode;
   const guidedMode = !!config.guidedMode;
@@ -84,6 +87,13 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     engineRef.current.setSpeed(speedRef.current);
     if (loopRef.current) engineRef.current.setLoop(loopRef.current.start, loopRef.current.end);
     setTime(0);
+    if (songIdRef.current === song.id && lastTimeRef.current > 0 && !micMode) {
+      engineRef.current.seek(lastTimeRef.current);
+      setTime(lastTimeRef.current);
+    } else {
+      lastTimeRef.current = 0;
+    }
+    songIdRef.current = song.id;
     setExpected(new Set());
     setPressed(new Set());
     setWrong(new Set());
@@ -178,7 +188,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
       if (down) next.add(midi); else next.delete(midi);
       return next;
     });
-    if (down) {
+    if (down && running) {
       const result = engineRef.current?.onKeyDown(midi);
       if (result === 'correct') {
         showFeedback('✓ ¡Correcto! Sigue así');
@@ -194,7 +204,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
       }
       syncExpected();
     }
-  }, [syncExpected, interactive, showFeedback]);
+  }, [syncExpected, interactive, showFeedback, running]);
 
   const midiDevice = useMidiInput(interactive && !micMode ? handleKey : () => {});
   const hasMidi = !!midiDevice && midiDevice !== 'unsupported';
@@ -273,12 +283,15 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
         if (!freeMode || appSound) playNote(n.midi, dur);
         if (engine.config.listenMode || engine.config.guidedMode || freeMode) flashKey(n.midi, dur);
       }
+      if (engine.time < lastTimeRef.current - 0.5 && loopRef.current) showFeedback('🔁 Otra vez desde A', 1200);
       setTime(engine.time);
+      lastTimeRef.current = engine.time;
       if (interactive) syncExpected();
       if (guidedMode) syncGuidedHint(hasMidi, micMode, micReady);
       if (engine.attempted) setLiveScore(engine.score());
       if (engine.finished) {
         setRunning(false);
+        lastTimeRef.current = 0; // terminada: "Repetir" y cambios de ajustes deben partir de 0
         const scored = (engine.config.guidedMode
           || engine.config.playAlongMode
           || (engine.config.waitMode && !engine.config.listenMode && !engine.config.freeMode))
@@ -292,7 +305,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound]);
+  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound, showFeedback]);
 
   const start = async () => {
     try {
@@ -310,13 +323,16 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
   }, [micMode, showFeedback]);
 
   const coach: { text: string; tone: CoachTone; chip: string | null } = (() => {
-    const chip = micMode
+    const inputChip = micMode
       ? (mic.status === 'active' || mic.status === 'hearing' || mic.status === 'quiet' ? `🎤 señal ${mic.signalPct}%` : null)
       : listenMode ? '🎧 escuchando'
       : hasMidi ? `🎹 ${midiDevice}`
       : screenInput ? `👆 ${INPUT_LABELS.screen}` : null;
+    const statsChip = streak > 1 ? `✓ ${streak} seguidas` : (liveScore !== null && (playAlongMode || micMode)) ? `${liveScore}%` : null;
+    const chip = statsChip ?? inputChip;
 
     if (audioError) return { text: '⚠ Sin sonido (revisa conexión) — puedes practicar igualmente', tone: 'warn', chip };
+    if (!running && !countingDown && time > 0 && !ended) return { text: '⏸ En pausa — pulsa ▶ para seguir', tone: 'info', chip: statsChip ?? chip };
     if (micMode) {
       if (mic.status === 'denied') return { text: 'Necesitas permitir el micrófono en el navegador', tone: 'err', chip };
       if (feedback) return { text: feedback, tone: feedback.startsWith('✓') ? 'ok' : 'err', chip };
@@ -343,26 +359,27 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     return { text: '¡Sigue así!', tone: 'ok', chip };
   })();
 
+  const coachAction = micMode && guidedPhase === 'repeat'
+    ? { label: 'Saltar →', onClick: () => { engineRef.current?.skipPending(); syncExpected(); syncGuidedHint(hasMidi, micMode, micReady); } }
+    : (!micMode && !listenMode && !freeMode && running && expected.size > 0)
+      ? { label: '🔊 ¿Cómo suena?', onClick: () => { [...expected].forEach((m, i) => window.setTimeout(() => playNote(m, 0.8), i * 300)); } }
+      : null;
+
   const keyboardH = Math.max(90, Math.round(size.h * 0.22));
   const barH = 48;
   const coachH = 46;
   const loopH = loop ? 56 : 0;
   const fallH = Math.max(0, size.h - keyboardH - barH - coachH - loopH);
-  const progressPct = effectiveSong.duration > 0 ? Math.min(100, (time / effectiveSong.duration) * 100) : 0;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ height: barH, display: 'flex', gap: 10, alignItems: 'center', padding: '0 12px' }}>
-        <button className="btn-ghost" onClick={onExit} style={{ fontSize: 18 }}>✕</button>
-        <div style={{ flex: 1, height: 8, background: 'var(--bg-chip)', borderRadius: 4 }}>
-          <div style={{ width: `${progressPct}%`, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, var(--right-soft), var(--right))' }} />
-        </div>
-        {streak > 1 && <span className="chip" style={{ color: 'var(--left)', fontWeight: 800 }}>✓ {streak} seguidas</span>}
-        {liveScore !== null && (playAlongMode || micMode) && (
-          <span className="chip" style={{ fontWeight: 800 }}>{liveScore}%</span>
-        )}
+        <button className="btn-ghost" style={{ fontSize: 18, flexShrink: 0 }}
+          onClick={() => { if (time > 0 && !ended && !confirm('¿Salir? Perderás la posición actual.')) return; onExit(); }}>✕</button>
+        <TimeBar time={time} duration={effectiveSong.duration} seekable={!micMode}
+          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; }} />
         {!micMode && (
-          <button className="btn-ghost" style={{ fontSize: 16 }}
+          <button className="btn-ghost" style={{ fontSize: 16, flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => {
               if (loop) { setLoopState(null); return; }
               const engine = engineRef.current;
@@ -371,17 +388,17 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
               const b = Math.min(dur, a + 8);
               setLoopState({ start: a, end: b });
             }}>
-            {loop ? '🔁✓' : '🔁'}
+            {loop ? '🔁✓' : '🔁 Bucle'}
           </button>
         )}
-        <button className="btn-ghost" onClick={() => setShowSettings(true)} style={{ fontSize: 18 }}>⚙</button>
-        <button className="btn-primary" style={{ minHeight: 36, padding: '6px 14px' }}
+        <button className="btn-ghost" onClick={() => setShowSettings(true)} style={{ fontSize: 18, flexShrink: 0 }}>⚙</button>
+        <button className="btn-primary" style={{ minHeight: 36, padding: '6px 14px', flexShrink: 0 }}
           onClick={running ? () => setRunning(false) : start} disabled={countingDown}>
           {running ? '⏸' : '▶'}
         </button>
       </div>
 
-      <CoachBar text={coach.text} tone={coach.tone} chip={coach.chip} />
+      <CoachBar text={coach.text} tone={coach.tone} chip={coach.chip} action={coachAction} />
 
       {loop && (
         <LoopBar
@@ -417,6 +434,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
             if (patch.waitMode !== undefined) setConfig(c => ({ ...c, waitMode: patch.waitMode! }));
           }}
           onClose={() => setShowSettings(false)}
+          onRestart={() => { engineRef.current?.seek(0); setTime(0); lastTimeRef.current = 0; setStreak(0); setMaxStreak(0); setShowSettings(false); }}
         />
       )}
 

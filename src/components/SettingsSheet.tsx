@@ -14,10 +14,11 @@ interface Props {
   onAppSound?: (on: boolean) => void;
   onChange: (patch: Partial<{ level: Level; speed: number; hand: EngineConfig['hand']; waitMode: boolean }>) => void;
   onClose: () => void;
+  onRestart: () => void;
 }
 
-/** Hoja inferior de ajustes. Cambiar nivel/mano reinicia la canción (lo gestiona el padre); velocidad y sonido se aplican al momento. */
-export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, appSound, onAppSound, onChange, onClose }: Props) {
+/** Hoja inferior de ajustes. Cambiar nivel/mano conserva la posición (lo gestiona el padre); velocidad y sonido se aplican al momento. */
+export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, appSound, onAppSound, onChange, onClose, onRestart }: Props) {
   return (
     <>
       <div className="overlay" onClick={onClose} />
@@ -68,7 +69,8 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
               <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>la app toca las notas</span>
             </label>
           )}
-          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>Cambiar nivel o mano reinicia la canción; la velocidad y el sonido se aplican al momento.</p>
+          <button onClick={onRestart} style={{ alignSelf: 'flex-start' }}>⟲ Reiniciar canción</button>
+          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>La velocidad y el sonido se aplican al momento; al cambiar nivel o mano se mantiene tu posición.</p>
         </div>
       </div>
     </>
