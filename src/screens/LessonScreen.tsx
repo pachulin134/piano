@@ -37,6 +37,9 @@ export default function LessonScreen({ lesson, hasNext, onCompleted, onNextLesso
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ height: barH, display: 'flex', gap: 10, alignItems: 'center', padding: '0 12px' }}>
         <button className="btn-ghost" onClick={onExit} style={{ fontSize: 18 }}>✕</button>
+        {i > 0 && !done && (
+          <button className="btn-ghost" onClick={() => setI(i - 1)} style={{ fontSize: 16 }}>←</button>
+        )}
         <div style={{ flex: 1, height: 8, background: 'var(--bg-chip)', borderRadius: 4 }}>
           <div style={{ width: `${((i + (done ? 1 : 0)) / lesson.steps.length) * 100}%`, height: 8, borderRadius: 4, background: 'linear-gradient(90deg, var(--right-soft), var(--right))' }} />
         </div>
