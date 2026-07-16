@@ -321,3 +321,64 @@ describe('PracticeEngine — bucle A-B', () => {
     expect(e.finished).toBe(false);
   });
 });
+
+describe('PracticeEngine — seek', () => {
+  it('salta a un punto y recoloca el grupo pendiente', () => {
+    const e = new PracticeEngine(song([note(60, 1), note(62, 3)]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    e.tick(2); // congelado en t=1 pidiendo 60
+    e.seek(2.5);
+    expect(e.time).toBeCloseTo(2.5, 5);
+    expect(e.expectedNotes()).toEqual([]); // pendiente limpiado
+    e.tick(1); // llega al grupo de t=3
+    expect(e.expectedNotes()).toEqual([62]);
+  });
+  it('retroceder permite repetir notas ya sonadas (escuchar/libre)', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: true, speed: 1, hand: 'both', listenMode: true });
+    e.tick(2); // suena la nota de t=1
+    e.seek(0);
+    const again = e.tick(1.5);
+    expect(again.map(n => n.midi)).toEqual([60]); // vuelve a sonar
+  });
+  it('clamp a [0, duración]', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: false, speed: 1, hand: 'both' });
+    e.seek(-5);
+    expect(e.time).toBe(0);
+    e.seek(999);
+    expect(e.time).toBeCloseTo(1.4, 5);
+  });
+});
+
+describe('PracticeEngine — skipPending', () => {
+  it('salta el grupo pendiente sin puntuar (espera)', () => {
+    const e = new PracticeEngine(song([note(60, 1), note(62, 3)]),
+      { waitMode: true, speed: 1, hand: 'both' });
+    e.tick(2);
+    expect(e.expectedNotes()).toEqual([60]);
+    e.skipPending();
+    expect(e.expectedNotes()).toEqual([]);
+    expect(e.correct + e.wrong).toBe(0); // sin puntuar
+    e.tick(2);
+    expect(e.expectedNotes()).toEqual([62]); // siguiente grupo
+  });
+  it('salta el grupo en modo guiado (micrófono) y permite continuar', () => {
+    const e = new PracticeEngine(song([note(60, 0.5), note(62, 1.5)]),
+      { waitMode: true, speed: 1, hand: 'both', guidedMode: true });
+    e.tick(1);    // demo del primer grupo
+    e.tick(9);    // fin de demo → repeat, pending {60}
+    expect(e.expectedNotes()).toEqual([60]);
+    e.skipPending();
+    expect(e.expectedNotes()).toEqual([]);
+    expect(e.guidedPhase).toBe(null); // lista para el siguiente grupo
+    const played = e.tick(0.1); // demo del siguiente grupo
+    expect(played.some(n => n.midi === 62)).toBe(true);
+  });
+  it('sin pendiente es un no-op', () => {
+    const e = new PracticeEngine(song([note(60, 1)]),
+      { waitMode: false, speed: 1, hand: 'both' });
+    e.skipPending();
+    expect(e.time).toBe(0);
+  });
+});

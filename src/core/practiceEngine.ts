@@ -273,6 +273,19 @@ export class PracticeEngine {
     this.loop = null;
   }
 
+  /** Salta al instante t (segundos musicales), en cualquier modo con reloj lineal. */
+  seek(t: number): void {
+    this.seekTo(Math.max(0, Math.min(t, this.songDuration)));
+  }
+
+  /** Completa el grupo pendiente sin sumar acierto ni fallo (desatasco). */
+  skipPending(): void {
+    if (!this.pending) return;
+    this.pending = null;
+    if (this.config.guidedMode) this.guidedStep = null;
+    this.groupIdx += 1;
+  }
+
   /** Recoloca el reloj y todos los índices internos en el instante t. */
   private seekTo(t: number): void {
     this.time = t;
