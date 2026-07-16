@@ -76,8 +76,20 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {songs.map(s => {
+        {([
+          { key: 'claude', title: '✨ Creadas para ti', match: (s: Song) => s.id.startsWith('claude:') },
+          { key: 'builtin', title: '🎁 Incluidas', match: (s: Song) => s.id.startsWith('builtin:') },
+          { key: 'user', title: '📁 Tus canciones', match: (s: Song) => !s.id.startsWith('claude:') && !s.id.startsWith('builtin:') },
+        ]).map(group => {
+          const inGroup = songs.filter(group.match);
+          if (inGroup.length === 0) return null;
+          return (
+            <section key={group.key} style={{ marginBottom: 18 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-2)', margin: '0 0 8px 2px', letterSpacing: 0.5 }}>
+                {group.title}
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {inGroup.map(s => {
             const { icon, bg } = songIcon(s.id);
             const pct = s.bestScore ?? 0;
             return (
@@ -103,14 +115,17 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <button className="btn-primary" onClick={() => onOpen(s)} style={{ padding: '8px 14px' }}>Aprender</button>
-                  {!s.id.startsWith('builtin:') && (
+                  {group.key === 'user' && (
                     <button className="btn-ghost" onClick={() => { if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
                   )}
                 </div>
               </div>
             );
-          })}
-        </div>
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );

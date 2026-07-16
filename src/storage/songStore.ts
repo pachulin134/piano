@@ -94,6 +94,11 @@ async function removeFromDisk(id: string): Promise<boolean> {
 export function createSongStore(kv: KV = { get, set }) {
   const read = async (): Promise<Song[]> => {
     const scores = await readScores(kv);
+    const claude = await loadCatalog(
+      'songs/claude/index.json',
+      'songs/claude/',
+      item => `claude:${item.file}`,
+    );
     const builtin = await loadCatalog(
       'songs/index.json',
       'songs/',
@@ -108,7 +113,7 @@ export function createSongStore(kv: KV = { get, set }) {
 
     const seen = new Set<string>();
     const songs: Song[] = [];
-    for (const s of [...builtin, ...userFromDisk, ...legacy]) {
+    for (const s of [...claude, ...builtin, ...userFromDisk, ...legacy]) {
       if (seen.has(s.id)) continue;
       seen.add(s.id);
       songs.push(s);
@@ -129,7 +134,8 @@ export function createSongStore(kv: KV = { get, set }) {
       await writeLegacy([...legacy, song]);
     },
     async remove(id: string): Promise<void> {
-      if (id.startsWith('builtin:')) return;
+      // Las colecciones de fábrica (incluidas y compuestas por Claude) no se borran
+      if (id.startsWith('builtin:') || id.startsWith('claude:')) return;
 
       if (await removeFromDisk(id)) {
         const scores = await readScores(kv);

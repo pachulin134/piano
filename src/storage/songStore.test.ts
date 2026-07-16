@@ -49,4 +49,12 @@ describe('songStore', () => {
     // sin fetch en tests la biblioteca queda vacía; el remove simplemente no falla
     expect(await store.list()).toEqual([]);
   });
+
+  it('tampoco borra las piezas compuestas por Claude (claude:)', async () => {
+    const store = createSongStore(memoryKV());
+    // el guard corta ANTES de tocar nada: ni siquiera intenta borrar del legacy
+    await store.add(song('claude:cielo-abierto.mid'));
+    await store.remove('claude:cielo-abierto.mid');
+    expect((await store.list()).map(s => s.id)).toEqual(['claude:cielo-abierto.mid']);
+  });
 });
