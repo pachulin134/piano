@@ -1,204 +1,182 @@
 // Piezas ORIGINALES compuestas por Claude para la sección "Creadas para ti".
-// Composición como datos → MIDI, mismo patrón que makeSongs.mjs.
+// Composición como datos → MIDI. Lección aprendida con la salsa: cada pieza
+// necesita un patrón rítmico con identidad (shuffle, tumbao, groove), no solo
+// acordes y melodía.
 import pkg from '@tonejs/midi';
 const { Midi } = pkg;
 import { mkdirSync, writeFileSync } from 'node:fs';
 
-const BPM = 76;
-const SPB = 60 / BPM; // segundos por beat (negra)
-
-// ---------- "Cielo Abierto" — La menor, 4/4, forma Intro–A–A'–B–A''–Coda ----------
-
-// Acordes para la mano izquierda: [raíz2, quinta, octava] (patrón de arpegio r-5-8-5 en corcheas)
-const CHORDS = {
-  Am: [45, 52, 57], F: [41, 48, 53], C: [48, 55, 60],
-  G: [43, 50, 55], Dm: [50, 57, 62], Em: [40, 47, 52],
-};
-
-// Progresiones por sección (un acorde por compás)
-const INTRO = ['Am', 'F', 'C', 'G'];
-const VERSE = ['Am', 'F', 'C', 'G', 'Am', 'F', 'C', 'G'];
-const BRIDGE = ['Dm', 'Am', 'F', 'G', 'Dm', 'Am', 'F', 'G'];
-const CODA = ['Am', 'F', 'C', 'Am'];
-
-// Melodías: [midi, beats] por compás (4 beats); null = silencio
-const REST = (b) => [null, b];
-const MEL_A = [
-  [[64, 1], [69, 1], [71, 2]],           // Am: mi la si—
-  [[72, 2], [71, 1], [69, 1]],           // F:  do' si la
-  [[67, 2], [64, 1], [67, 1]],           // C:  sol mi sol
-  [[69, 2], [71, 2]],                    // G:  la si—
-  [[72, 1], [71, 1], [69, 2]],           // Am: do' si la—
-  [[69, 1], [67, 1], [65, 2]],           // F:  la sol fa—
-  [[64, 2], [67, 1], [64, 1]],           // C:  mi— sol mi
-  [[62, 3], REST(1)],                    // G:  re——— (respira)
-];
-const MEL_A2 = [                          // A': igual pero cierra subiendo
-  ...MEL_A.slice(0, 7),
-  [[71, 2], [72, 2]],                    // G:  si do' → empuja al puente
-];
-const MEL_B = [
-  [[65, 1], [69, 1], [74, 2]],           // Dm: fa la re'—
-  [[72, 1], [71, 1], [69, 2]],           // Am: do' si la—
-  [[69, 1], [72, 1], [77, 2]],           // F:  la do' fa'—
-  [[76, 2], [74, 2]],                    // G:  mi' re'—
-  [[74, 1], [76, 1], [77, 2]],           // Dm: re' mi' fa'—
-  [[76, 2], [72, 2]],                    // Am: mi'— do'—
-  [[69, 1], [72, 1], [69, 2]],           // F:  la do' la—
-  [[71, 2], [74, 2]],                    // G:  si re' → vuelta al tema
-];
-const MEL_A3 = [                          // A'': primera mitad una octava arriba (clímax), luego baja
-  [[76, 1], [81, 1], [83, 2]],           // Am: mi' la' si'—
-  [[84, 2], [83, 1], [81, 1]],           // F:  do'' si' la'
-  [[79, 2], [76, 1], [79, 1]],           // C:  sol' mi' sol'
-  [[81, 2], [83, 2]],                    // G:  la' si'—
-  [[72, 1], [71, 1], [69, 2]],           // Am: baja a la octava media
-  [[69, 1], [67, 1], [65, 2]],           // F
-  [[64, 2], [67, 1], [64, 1]],           // C
-  [[69, 4]],                             // G:  la———— (larga, resuelve)
-];
-const MEL_CODA = [
-  [[64, 2], [60, 2]],                    // Am: mi— do—
-  [[65, 2], [64, 2]],                    // F:  fa— mi—
-  [[62, 2], [64, 2]],                    // C:  re— mi—
-  [[69, 4]],                             // Am: la———— final
-];
-
-function addLeftBar(track, chordName, tStart, pattern = 'flow') {
-  const [r, q, o] = CHORDS[chordName];
-  if (pattern === 'calm') { // coda: blancas
-    track.addNote({ midi: r, time: tStart, duration: 2 * SPB * 0.95 });
-    track.addNote({ midi: q, time: tStart + 2 * SPB, duration: 2 * SPB * 0.95 });
-    return;
-  }
-  const seq = [r, q, o, q, r, q, o, q]; // corcheas r-5-8-5 ×2
-  seq.forEach((m, i) => track.addNote({ midi: m, time: tStart + i * 0.5 * SPB, duration: 0.5 * SPB * 0.95 }));
-}
-
-function addMelodyBar(track, bar, tStart) {
+/** Añade una secuencia [midi | midi[] | null, beats] a partir de tStart. */
+function addSeq(track, seq, tStart, spb, legato = 0.9) {
   let t = tStart;
-  for (const [midi, beats] of bar) {
-    if (midi !== null) track.addNote({ midi, time: t, duration: beats * SPB * 0.92 });
-    t += beats * SPB;
+  for (const [m, beats] of seq) {
+    if (m !== null) {
+      for (const midi of Array.isArray(m) ? m : [m]) {
+        track.addNote({ midi, time: t, duration: beats * spb * legato });
+      }
+    }
+    t += beats * spb;
   }
 }
 
-function buildCieloAbierto() {
+// ---------- "Luna Azul" — blues romántico en Do, 12 compases con shuffle ----------
+
+function buildLunaAzul() {
+  const BPM = 58;
+  const spb = 60 / BPM;
   const midi = new Midi();
   midi.header.setTempo(BPM);
   const right = midi.addTrack(); right.name = 'right';
   const left = midi.addTrack(); left.name = 'left';
 
-  let bar = 0;
-  const barLen = 4 * SPB;
-  const put = (chords, melody, pattern = 'flow') => {
-    chords.forEach((ch, i) => {
-      addLeftBar(left, ch, (bar + i) * barLen, pattern);
-      if (melody) addMelodyBar(right, melody[i], (bar + i) * barLen);
-    });
-    bar += chords.length;
+  const L = 2 / 3, S = 1 / 3; // pareja de corcheas con swing (larga-corta)
+
+  // Bajo shuffle clásico: raíz-3ª-5ª-6ª-7ªb-6ª-5ª-3ª en corcheas swing
+  const SHUFFLE = {
+    C7: [48, 52, 55, 57, 58, 57, 55, 52],
+    F7: [41, 45, 48, 50, 51, 50, 48, 45],
+    G7: [43, 47, 50, 52, 53, 52, 50, 47],
   };
-
-  put(INTRO, null);                 // 4 compases solo MI
-  put(VERSE, MEL_A);                // A
-  put(VERSE, MEL_A2);               // A'
-  put(BRIDGE, MEL_B);               // B (clímax suave)
-  put(VERSE, MEL_A3);               // A'' (octava arriba y desciende)
-  put(CODA, MEL_CODA, 'calm');      // coda en calma
-
-  // acorde final: La menor abierto, largo
-  const tEnd = bar * barLen;
-  left.addNote({ midi: 45, time: tEnd, duration: 4 * SPB });
-  left.addNote({ midi: 52, time: tEnd, duration: 4 * SPB });
-  right.addNote({ midi: 57, time: tEnd, duration: 4 * SPB });
-  right.addNote({ midi: 64, time: tEnd, duration: 4 * SPB });
-  right.addNote({ midi: 69, time: tEnd, duration: 4 * SPB });
-
-  return midi;
-}
-
-// ---------- "Terciopelo" — R&B lento en Do, acordes de séptima y melodía sincopada ----------
-
-function buildTerciopelo() {
-  const BPM_RNB = 70;
-  const spb = 60 / BPM_RNB;
-  const midi = new Midi();
-  midi.header.setTempo(BPM_RNB);
-  const right = midi.addTrack(); right.name = 'right';
-  const left = midi.addTrack(); left.name = 'left';
-
-  // Acordes de séptima: [raíz, quinta, séptima]
-  const CH = {
-    Cmaj7: [48, 55, 59], Am7: [45, 52, 55], Dm7: [50, 57, 60],
-    G7: [43, 50, 53], Fmaj7: [41, 48, 52], Em7: [40, 47, 50],
-  };
-  // MI estilo balada R&B: raíz larga, luego 5ª y 7ª (deja respirar)
   const leftBar = (name, t) => {
-    const [r, q, s] = CH[name];
-    left.addNote({ midi: r, time: t, duration: 2 * spb * 0.95 });
-    left.addNote({ midi: q, time: t + 2 * spb, duration: 1 * spb * 0.9 });
-    left.addNote({ midi: s, time: t + 3 * spb, duration: 1 * spb * 0.9 });
+    const seq = SHUFFLE[name].map((m, i) => [m, i % 2 === 0 ? L : S]);
+    addSeq(left, seq, t, spb, 0.95);
   };
-  // Melodías por compás: [midi|null, beats] — los null crean la síncopa (entra a contratiempo)
-  const A = [
-    [[null, 0.5], [64, 0.5], [67, 0.5], [69, 1], [67, 1.5]],          // Cmaj7
-    [[null, 0.5], [72, 1], [71, 0.5], [69, 2]],                        // Am7
-    [[null, 1], [62, 0.5], [65, 0.5], [69, 1.5], [67, 0.5]],           // Dm7
-    [[71, 1], [69, 0.5], [67, 0.5], [62, 2]],                          // G7
-    [[null, 0.5], [67, 0.5], [69, 0.5], [71, 0.5], [72, 2]],           // Cmaj7
-    [[76, 1], [72, 1], [69, 1.5], [67, 0.5]],                          // Am7
-    [[65, 0.5], [69, 0.5], [72, 1], [69, 1], [67, 1]],                 // Dm7
-    [[67, 3], [null, 1]],                                              // G7 (respira)
+
+  // Progresión de blues de 12 compases
+  const BLUES = ['C7', 'C7', 'C7', 'C7', 'F7', 'F7', 'C7', 'C7', 'G7', 'F7', 'C7', 'G7'];
+
+  // Coro 1: tema con notas azules (Mib=63, Sib=70) y "crush" Mib→Mi
+  const CHORUS1 = [
+    [[null, 1], [63, S], [64, L], [67, 1], [69, 1]],
+    [[72, 2], [70, 1], [67, 1]],
+    [[null, 1], [69, 1], [67, L], [64, S], [62, 1]],
+    [[60, 3], [null, 1]],
+    [[null, 1], [63, S], [65, L], [69, 1], [70, 1]],
+    [[72, 2], [69, 1], [65, 1]],
+    [[null, 1], [67, 1], [64, 1], [62, 1]],
+    [[60, 2], [null, 2]],
+    [[null, 1], [71, 1], [74, 1], [71, 1]],
+    [[70, 1], [69, 1], [65, 2]],
+    [[63, S], [64, L], [60, 1], [null, 2]],
+    [[62, 1], [65, 1], [67, 2]],
   ];
-  const A2 = [
-    ...A.slice(0, 7),
-    [[62, 1], [64, 0.5], [67, 0.5], [72, 2]],                          // G7 → sube al puente
+  // Coro 2: la primera mitad una octava arriba (clímax), la vuelta igual
+  const up = bar => bar.map(([m, b]) => [m === null ? null : m + 12, b]);
+  const CHORUS2 = [
+    ...CHORUS1.slice(0, 4).map(up),
+    ...CHORUS1.slice(4, 6).map(up),
+    ...CHORUS1.slice(6),
   ];
-  const B = [
-    [[null, 0.5], [69, 1], [72, 1], [76, 1.5]],                        // Fmaj7
-    [[74, 1], [71, 1], [67, 2]],                                       // Em7
-    [[null, 0.5], [65, 0.5], [69, 1], [74, 2]],                        // Dm7
-    [[71, 1.5], [67, 0.5], [62, 2]],                                   // G7
-    [[null, 0.5], [69, 1], [72, 1], [76, 1.5]],                        // Fmaj7
-    [[79, 1], [76, 1], [72, 2]],                                       // Em7 (clímax suave)
-    [[69, 0.5], [72, 0.5], [74, 1], [72, 1], [69, 1]],                 // Dm7
-    [[71, 2], [74, 2]],                                                // G7 → vuelta
-  ];
-  const CODA_RNB = [
-    [[null, 0.5], [64, 0.5], [67, 0.5], [69, 1], [67, 1.5]],           // Cmaj7
-    [[64, 4]],                                                         // Am7: mi———— (se apaga)
+  const OUTRO = [
+    [[null, 1], [63, S], [64, L], [67, 2]],
+    [[72, 4]],
   ];
 
-  const PROG_A = ['Cmaj7', 'Am7', 'Dm7', 'G7', 'Cmaj7', 'Am7', 'Dm7', 'G7'];
-  const PROG_B = ['Fmaj7', 'Em7', 'Dm7', 'G7', 'Fmaj7', 'Em7', 'Dm7', 'G7'];
   const barLen = 4 * spb;
   let bar = 0;
   const put = (chords, melody) => {
     chords.forEach((ch, i) => {
       leftBar(ch, (bar + i) * barLen);
-      if (melody) {
-        let t = (bar + i) * barLen;
-        for (const [m, beats] of melody[i]) {
-          if (m !== null) right.addNote({ midi: m, time: t, duration: beats * spb * 0.9 });
-          t += beats * spb;
-        }
-      }
+      if (melody) addSeq(right, melody[i], (bar + i) * barLen, spb, 0.88);
     });
     bar += chords.length;
   };
 
-  put(['Cmaj7', 'G7'], null);        // intro corta solo MI
-  put(PROG_A, A);
-  put(PROG_A, A2);
-  put(PROG_B, B);
-  put(PROG_A, A);
-  put(['Cmaj7', 'Am7'], CODA_RNB);
-  // acorde final Cmaj7 abierto
+  put(['C7', 'C7', 'F7', 'G7'], null); // intro: el shuffle entra solo
+  put(BLUES, CHORUS1);
+  put(BLUES, CHORUS2);
+  put(['C7', 'C7'], OUTRO);
+  // acorde final: Do6/9 abierto (dulce, romántico)
   const tEnd = bar * barLen;
-  left.addNote({ midi: 48, time: tEnd, duration: 4 * spb });
-  left.addNote({ midi: 55, time: tEnd, duration: 4 * spb });
-  right.addNote({ midi: 64, time: tEnd, duration: 4 * spb });
-  right.addNote({ midi: 71, time: tEnd, duration: 4 * spb });
+  for (const m of [36, 48, 55]) left.addNote({ midi: m, time: tEnd, duration: 4 * spb });
+  for (const m of [64, 67, 72]) right.addNote({ midi: m, time: tEnd, duration: 4 * spb });
+  return midi;
+}
+
+// ---------- "Vaivén" — R&B/neo-soul en La menor: bajo sincopado + stabs con novenas ----------
+
+function buildVaiven() {
+  const BPM = 88;
+  const spb = 60 / BPM;
+  const midi = new Midi();
+  midi.header.setTempo(BPM);
+  const right = midi.addTrack(); right.name = 'right';
+  const left = midi.addTrack(); left.name = 'left';
+
+  // [raíz, octava, quinta, séptima]
+  const CH = {
+    Am7: [45, 57, 52, 55], Dm7: [50, 62, 57, 60], G7: [43, 55, 50, 53],
+    Cmaj7: [48, 60, 55, 59], Fmaj7: [41, 53, 48, 52], E7: [40, 52, 47, 50],
+  };
+  // Groove de bajo sincopado: raíz · raíz octava en el "2y" · quinta · séptima
+  const leftBar = (name, t) => {
+    const [r, o, q, s] = CH[name];
+    addSeq(left, [[r, 1], [null, 0.5], [o, 0.5], [q, 0.75], [null, 0.25], [s, 1]], t, spb, 0.85);
+  };
+
+  // "Stabs" a contratiempo (díadas con 7ª y 9ª — el color neo-soul)
+  const STABS = {
+    Am7: { hi: [72, 76], mid: [69, 72], lo: [67, 71] },
+    Dm7: { hi: [74, 77], mid: [72, 76], lo: [69, 72] },
+    G7: { hi: [71, 74], mid: [67, 71], lo: [65, 69] },
+    Cmaj7: { hi: [76, 79], mid: [72, 76], lo: [71, 74] },
+    Fmaj7: { hi: [72, 76], mid: [69, 72], lo: [67, 71] },
+    E7: { hi: [71, 74], mid: [68, 71], lo: [64, 68] }, // Sol#4=68
+  };
+  const stabBar = name => {
+    const d = STABS[name];
+    return [[null, 0.5], [d.hi, 0.5], [null, 0.5], [d.mid, 1], [null, 0.5], [d.lo, 0.5], [null, 0.5]];
+  };
+
+  const VERSE_PROG = ['Am7', 'Dm7', 'G7', 'Cmaj7'];
+  // Melodía del verso (semicorcheas sincopadas, entra a contratiempo)
+  const MEL_VERSE = [
+    [[null, 0.5], [64, 0.25], [67, 0.25], [69, 1], [72, 1.5], [null, 0.5]],
+    [[null, 0.25], [74, 0.75], [72, 0.5], [69, 1], [65, 1.5]],
+    [[null, 0.5], [67, 0.5], [69, 0.5], [71, 0.5], [74, 2]],
+    [[72, 1.5], [71, 0.5], [67, 2]],
+    [[null, 0.5], [76, 1], [72, 0.5], [69, 2]],
+    [[74, 0.5], [72, 0.25], [69, 0.25], [67, 1], [65, 2]],
+    [[null, 0.5], [62, 0.5], [65, 0.5], [67, 0.5], [71, 2]],
+    [[72, 3], [null, 1]],
+  ];
+  const BRIDGE_PROG = ['Fmaj7', 'E7', 'Am7', 'Am7'];
+  const MEL_BRIDGE = [
+    [[null, 0.5], [69, 1], [72, 1], [76, 1.5]],
+    [[74, 0.5], [71, 0.5], [68, 1], [64, 2]],       // el Sol# canta
+    [[null, 0.5], [64, 0.5], [67, 0.5], [69, 0.5], [72, 2]],
+    [[69, 4]],
+  ];
+
+  const barLen = 4 * spb;
+  let bar = 0;
+  const putGroove = prog => {
+    prog.forEach((ch, i) => {
+      const t = (bar + i) * barLen;
+      leftBar(ch, t);
+      addSeq(right, stabBar(ch), t, spb, 0.8);
+    });
+    bar += prog.length;
+  };
+  const putMelody = (prog, mel) => {
+    prog.forEach((ch, i) => {
+      const t = (bar + i) * barLen;
+      leftBar(ch, t);
+      addSeq(right, mel[i], t, spb, 0.88);
+    });
+    bar += prog.length;
+  };
+
+  putGroove(VERSE_PROG);                              // entra el groove
+  putMelody([...VERSE_PROG, ...VERSE_PROG], MEL_VERSE);
+  putGroove(VERSE_PROG);
+  putMelody(BRIDGE_PROG, MEL_BRIDGE);
+  putMelody([...VERSE_PROG, ...VERSE_PROG], MEL_VERSE);
+  putGroove(VERSE_PROG);
+  // acorde final: Am9 (con la novena Si — despedida suave)
+  const tEnd = bar * barLen;
+  for (const m of [45, 52]) left.addNote({ midi: m, time: tEnd, duration: 4 * spb });
+  for (const m of [64, 69, 71]) right.addNote({ midi: m, time: tEnd, duration: 4 * spb });
   return midi;
 }
 
@@ -260,11 +238,7 @@ function buildSaborDeVerano() {
       const next = PROG[(i + 1) % PROG.length];
       const t = (bar + i) * barLen;
       leftBar(ch, next, t);
-      let tm = t;
-      for (const [m, beats] of MEL_SALSA[i]) {
-        if (m !== null) right.addNote({ midi: m, time: tm, duration: beats * spb * 0.85 });
-        tm += beats * spb;
-      }
+      addSeq(right, MEL_SALSA[i], t, spb, 0.85);
     }
     bar += MEL_SALSA.length;
   };
@@ -285,8 +259,8 @@ function buildSaborDeVerano() {
 }
 
 const SONGS = [
-  { file: 'cielo-abierto.mid', title: 'Cielo Abierto — por Claude ✨', build: buildCieloAbierto },
-  { file: 'terciopelo.mid', title: 'Terciopelo (R&B) — por Claude ✨', build: buildTerciopelo },
+  { file: 'luna-azul.mid', title: 'Luna Azul (blues romántico) — por Claude ✨', build: buildLunaAzul },
+  { file: 'vaiven.mid', title: 'Vaivén (R&B) — por Claude ✨', build: buildVaiven },
   { file: 'sabor-de-verano.mid', title: 'Sabor de Verano (salsa) — por Claude ✨', build: buildSaborDeVerano },
 ];
 
