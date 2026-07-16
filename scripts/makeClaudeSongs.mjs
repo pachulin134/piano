@@ -19,166 +19,6 @@ function addSeq(track, seq, tStart, spb, legato = 0.9) {
   }
 }
 
-// ---------- "Luna Azul" — blues romántico en Do, 12 compases con shuffle ----------
-
-function buildLunaAzul() {
-  const BPM = 58;
-  const spb = 60 / BPM;
-  const midi = new Midi();
-  midi.header.setTempo(BPM);
-  const right = midi.addTrack(); right.name = 'right';
-  const left = midi.addTrack(); left.name = 'left';
-
-  const L = 2 / 3, S = 1 / 3; // pareja de corcheas con swing (larga-corta)
-
-  // Bajo shuffle clásico: raíz-3ª-5ª-6ª-7ªb-6ª-5ª-3ª en corcheas swing
-  const SHUFFLE = {
-    C7: [48, 52, 55, 57, 58, 57, 55, 52],
-    F7: [41, 45, 48, 50, 51, 50, 48, 45],
-    G7: [43, 47, 50, 52, 53, 52, 50, 47],
-  };
-  const leftBar = (name, t) => {
-    const seq = SHUFFLE[name].map((m, i) => [m, i % 2 === 0 ? L : S]);
-    addSeq(left, seq, t, spb, 0.95);
-  };
-
-  // Progresión de blues de 12 compases
-  const BLUES = ['C7', 'C7', 'C7', 'C7', 'F7', 'F7', 'C7', 'C7', 'G7', 'F7', 'C7', 'G7'];
-
-  // Coro 1: tema con notas azules (Mib=63, Sib=70) y "crush" Mib→Mi
-  const CHORUS1 = [
-    [[null, 1], [63, S], [64, L], [67, 1], [69, 1]],
-    [[72, 2], [70, 1], [67, 1]],
-    [[null, 1], [69, 1], [67, L], [64, S], [62, 1]],
-    [[60, 3], [null, 1]],
-    [[null, 1], [63, S], [65, L], [69, 1], [70, 1]],
-    [[72, 2], [69, 1], [65, 1]],
-    [[null, 1], [67, 1], [64, 1], [62, 1]],
-    [[60, 2], [null, 2]],
-    [[null, 1], [71, 1], [74, 1], [71, 1]],
-    [[70, 1], [69, 1], [65, 2]],
-    [[63, S], [64, L], [60, 1], [null, 2]],
-    [[62, 1], [65, 1], [67, 2]],
-  ];
-  // Coro 2: la primera mitad una octava arriba (clímax), la vuelta igual
-  const up = bar => bar.map(([m, b]) => [m === null ? null : m + 12, b]);
-  const CHORUS2 = [
-    ...CHORUS1.slice(0, 4).map(up),
-    ...CHORUS1.slice(4, 6).map(up),
-    ...CHORUS1.slice(6),
-  ];
-  const OUTRO = [
-    [[null, 1], [63, S], [64, L], [67, 2]],
-    [[72, 4]],
-  ];
-
-  const barLen = 4 * spb;
-  let bar = 0;
-  const put = (chords, melody) => {
-    chords.forEach((ch, i) => {
-      leftBar(ch, (bar + i) * barLen);
-      if (melody) addSeq(right, melody[i], (bar + i) * barLen, spb, 0.88);
-    });
-    bar += chords.length;
-  };
-
-  put(['C7', 'C7', 'F7', 'G7'], null); // intro: el shuffle entra solo
-  put(BLUES, CHORUS1);
-  put(BLUES, CHORUS2);
-  put(['C7', 'C7'], OUTRO);
-  // acorde final: Do6/9 abierto (dulce, romántico)
-  const tEnd = bar * barLen;
-  for (const m of [36, 48, 55]) left.addNote({ midi: m, time: tEnd, duration: 4 * spb });
-  for (const m of [64, 67, 72]) right.addNote({ midi: m, time: tEnd, duration: 4 * spb });
-  return midi;
-}
-
-// ---------- "Vaivén" — R&B/neo-soul en La menor: bajo sincopado + stabs con novenas ----------
-
-function buildVaiven() {
-  const BPM = 88;
-  const spb = 60 / BPM;
-  const midi = new Midi();
-  midi.header.setTempo(BPM);
-  const right = midi.addTrack(); right.name = 'right';
-  const left = midi.addTrack(); left.name = 'left';
-
-  // [raíz, octava, quinta, séptima]
-  const CH = {
-    Am7: [45, 57, 52, 55], Dm7: [50, 62, 57, 60], G7: [43, 55, 50, 53],
-    Cmaj7: [48, 60, 55, 59], Fmaj7: [41, 53, 48, 52], E7: [40, 52, 47, 50],
-  };
-  // Groove de bajo sincopado: raíz · raíz octava en el "2y" · quinta · séptima
-  const leftBar = (name, t) => {
-    const [r, o, q, s] = CH[name];
-    addSeq(left, [[r, 1], [null, 0.5], [o, 0.5], [q, 0.75], [null, 0.25], [s, 1]], t, spb, 0.85);
-  };
-
-  // "Stabs" a contratiempo (díadas con 7ª y 9ª — el color neo-soul)
-  const STABS = {
-    Am7: { hi: [72, 76], mid: [69, 72], lo: [67, 71] },
-    Dm7: { hi: [74, 77], mid: [72, 76], lo: [69, 72] },
-    G7: { hi: [71, 74], mid: [67, 71], lo: [65, 69] },
-    Cmaj7: { hi: [76, 79], mid: [72, 76], lo: [71, 74] },
-    Fmaj7: { hi: [72, 76], mid: [69, 72], lo: [67, 71] },
-    E7: { hi: [71, 74], mid: [68, 71], lo: [64, 68] }, // Sol#4=68
-  };
-  const stabBar = name => {
-    const d = STABS[name];
-    return [[null, 0.5], [d.hi, 0.5], [null, 0.5], [d.mid, 1], [null, 0.5], [d.lo, 0.5], [null, 0.5]];
-  };
-
-  const VERSE_PROG = ['Am7', 'Dm7', 'G7', 'Cmaj7'];
-  // Melodía del verso (semicorcheas sincopadas, entra a contratiempo)
-  const MEL_VERSE = [
-    [[null, 0.5], [64, 0.25], [67, 0.25], [69, 1], [72, 1.5], [null, 0.5]],
-    [[null, 0.25], [74, 0.75], [72, 0.5], [69, 1], [65, 1.5]],
-    [[null, 0.5], [67, 0.5], [69, 0.5], [71, 0.5], [74, 2]],
-    [[72, 1.5], [71, 0.5], [67, 2]],
-    [[null, 0.5], [76, 1], [72, 0.5], [69, 2]],
-    [[74, 0.5], [72, 0.25], [69, 0.25], [67, 1], [65, 2]],
-    [[null, 0.5], [62, 0.5], [65, 0.5], [67, 0.5], [71, 2]],
-    [[72, 3], [null, 1]],
-  ];
-  const BRIDGE_PROG = ['Fmaj7', 'E7', 'Am7', 'Am7'];
-  const MEL_BRIDGE = [
-    [[null, 0.5], [69, 1], [72, 1], [76, 1.5]],
-    [[74, 0.5], [71, 0.5], [68, 1], [64, 2]],       // el Sol# canta
-    [[null, 0.5], [64, 0.5], [67, 0.5], [69, 0.5], [72, 2]],
-    [[69, 4]],
-  ];
-
-  const barLen = 4 * spb;
-  let bar = 0;
-  const putGroove = prog => {
-    prog.forEach((ch, i) => {
-      const t = (bar + i) * barLen;
-      leftBar(ch, t);
-      addSeq(right, stabBar(ch), t, spb, 0.8);
-    });
-    bar += prog.length;
-  };
-  const putMelody = (prog, mel) => {
-    prog.forEach((ch, i) => {
-      const t = (bar + i) * barLen;
-      leftBar(ch, t);
-      addSeq(right, mel[i], t, spb, 0.88);
-    });
-    bar += prog.length;
-  };
-
-  putGroove(VERSE_PROG);                              // entra el groove
-  putMelody([...VERSE_PROG, ...VERSE_PROG], MEL_VERSE);
-  putGroove(VERSE_PROG);
-  putMelody(BRIDGE_PROG, MEL_BRIDGE);
-  putMelody([...VERSE_PROG, ...VERSE_PROG], MEL_VERSE);
-  putGroove(VERSE_PROG);
-  // acorde final: Am9 (con la novena Si — despedida suave)
-  const tEnd = bar * barLen;
-  for (const m of [45, 52]) left.addNote({ midi: m, time: tEnd, duration: 4 * spb });
-  for (const m of [64, 69, 71]) right.addNote({ midi: m, time: tEnd, duration: 4 * spb });
-  return midi;
-}
 
 // ---------- "Sabor de Verano" — salsa en La menor: tumbao (MI) + montuno (MD) ----------
 
@@ -258,9 +98,161 @@ function buildSaborDeVerano() {
   return midi;
 }
 
+// ---------- "Tren de Medianoche" — boogie-woogie en Do: el blues rápido y motorizado ----------
+
+function buildTrenDeMedianoche() {
+  const BPM = 144;
+  const spb = 60 / BPM;
+  const midi = new Midi();
+  midi.header.setTempo(BPM);
+  const right = midi.addTrack(); right.name = 'right';
+  const left = midi.addTrack(); left.name = 'left';
+
+  // Bajo boogie: 1-3-5-6-8-6-5-3 en corcheas SIN parar (la locomotora)
+  const BOOGIE = {
+    C7: [48, 52, 55, 57, 60, 57, 55, 52],
+    F7: [41, 45, 48, 50, 53, 50, 48, 45],
+    G7: [43, 47, 50, 52, 55, 52, 50, 47],
+  };
+  const leftBar = (name, t) =>
+    addSeq(left, BOOGIE[name].map(m => [m, 0.5]), t, spb, 0.9);
+
+  const BLUES = ['C7', 'C7', 'C7', 'C7', 'F7', 'F7', 'C7', 'C7', 'G7', 'F7', 'C7', 'G7'];
+
+  // Riffs pegadizos con notas azules (Mib=63, Sib=70)
+  const riffC = [[60, 0.5], [63, 0.5], [64, 0.5], [67, 0.5], [70, 1], [67, 1]];
+  const riffF = [[65, 0.5], [68, 0.5], [69, 0.5], [72, 0.5], [75, 1], [72, 1]];
+  const CHORUS1 = [
+    riffC,
+    riffC,
+    riffC,
+    [[72, 0.5], [70, 0.5], [67, 0.5], [64, 0.5], [63, 0.5], [60, 1.5]],
+    riffF,
+    riffF,
+    riffC,
+    [[60, 0.5], [64, 0.5], [67, 0.5], [70, 0.5], [72, 2]],
+    [[74, 0.5], [71, 0.5], [67, 0.5], [65, 0.5], [62, 2]],
+    [[72, 0.5], [69, 0.5], [65, 0.5], [63, 0.5], [60, 2]],
+    [[60, 1], [63, 0.5], [64, 0.5], [67, 2]],
+    [[67, 0.5], [68, 0.5], [69, 0.5], [70, 0.5], [71, 1], [null, 1]], // subida cromática
+  ];
+  const up = bar => bar.map(([m, b]) => [m === null ? null : m + 12, b]);
+  const CHORUS2 = [...CHORUS1.slice(0, 8).map(up), ...CHORUS1.slice(8)];
+  // Coro "solo": terceras martilleadas estilo boogie
+  const hammerC = [[72, 0.5], [75, 0.5], [72, 0.5], [75, 0.5], [72, 0.5], [75, 0.5], [72, 0.5], [70, 0.5]];
+  const hammerF = [[77, 0.5], [80, 0.5], [77, 0.5], [80, 0.5], [77, 0.5], [80, 0.5], [77, 0.5], [75, 0.5]];
+  const CHORUS3 = [
+    hammerC, hammerC, riffC,
+    [[72, 0.5], [70, 0.5], [67, 0.5], [64, 0.5], [63, 0.5], [60, 1.5]],
+    hammerF, riffF, riffC,
+    [[60, 0.5], [64, 0.5], [67, 0.5], [70, 0.5], [72, 2]],
+    [[74, 0.5], [71, 0.5], [67, 0.5], [65, 0.5], [62, 2]],
+    [[72, 0.5], [69, 0.5], [65, 0.5], [63, 0.5], [60, 2]],
+    [[60, 1], [63, 0.5], [64, 0.5], [67, 2]],
+    [[67, 0.5], [68, 0.5], [69, 0.5], [70, 0.5], [71, 1], [null, 1]],
+  ];
+
+  const barLen = 4 * spb;
+  let bar = 0;
+  const put = (chords, melody) => {
+    chords.forEach((ch, i) => {
+      leftBar(ch, (bar + i) * barLen);
+      if (melody) addSeq(right, melody[i], (bar + i) * barLen, spb, 0.85);
+    });
+    bar += chords.length;
+  };
+
+  put(['C7', 'C7', 'F7', 'G7'], null); // arranca la locomotora
+  put(BLUES, CHORUS1);
+  put(BLUES, CHORUS2);
+  put(BLUES, CHORUS3);
+  // frenazo final: dos golpes de C7 y acorde largo
+  const tEnd = bar * barLen;
+  addSeq(right, [[[60, 64, 67, 70], 0.5], [null, 0.5], [[60, 64, 67, 70], 0.5], [null, 0.5], [[60, 64, 67, 72], 2]], tEnd, spb, 0.9);
+  addSeq(left, [[36, 0.5], [null, 0.5], [36, 0.5], [null, 0.5], [[36, 48], 2]], tEnd, spb, 0.9);
+  return midi;
+}
+
+// ---------- "Neón" — R&B funk en Re dórico: bajo sincopado + riff estilo clavinet ----------
+
+function buildNeon() {
+  const BPM = 102;
+  const spb = 60 / BPM;
+  const midi = new Midi();
+  midi.header.setTempo(BPM);
+  const right = midi.addTrack(); right.name = 'right';
+  const left = midi.addTrack(); left.name = 'left';
+
+  // Bajo funk sincopado por acorde: golpe, respiro, octava, séptima-raíz
+  const BASS = {
+    Dm7: [[50, 0.75], [null, 0.75], [62, 0.5], [null, 0.5], [57, 0.5], [60, 0.5], [null, 0.5]],
+    G7: [[43, 0.75], [null, 0.75], [55, 0.5], [null, 0.5], [50, 0.5], [53, 0.5], [null, 0.5]],
+    Fmaj7: [[41, 0.75], [null, 0.75], [53, 0.5], [null, 0.5], [48, 0.5], [52, 0.5], [null, 0.5]],
+    Em7: [[40, 0.75], [null, 0.75], [52, 0.5], [null, 0.5], [47, 0.5], [50, 0.5], [null, 0.5]],
+  };
+  const leftBar = (name, t) => addSeq(left, BASS[name], t, spb, 0.8);
+
+  // Riff "clavinet": díadas cortantes en semicorcheas a contratiempo
+  const CLAV = {
+    Dm7: [[null, 0.25], [[65, 69], 0.25], [null, 0.25], [[65, 69], 0.25], [[64, 67], 0.5], [null, 0.5], [[62, 65], 0.25], [[62, 65], 0.25], [null, 0.5], [[60, 64], 0.5], [null, 0.5]],
+    G7: [[null, 0.25], [[65, 71], 0.25], [null, 0.25], [[65, 71], 0.25], [[62, 67], 0.5], [null, 0.5], [[59, 65], 0.25], [[59, 65], 0.25], [null, 0.5], [[57, 62], 0.5], [null, 0.5]],
+  };
+  const VAMP = ['Dm7', 'G7'];
+
+  // Melodía funk: gancho repetido, semicorcheas a contratiempo, sin huecos largos
+  const HOOK = [[null, 0.5], [74, 0.25], [72, 0.25], [69, 0.5], [67, 0.25], [69, 0.25], [65, 1.5], [null, 0.5]];
+  const MEL_A = [
+    HOOK,                                                                  // Dm7
+    [[null, 0.25], [67, 0.25], [69, 0.25], [71, 0.25], [74, 1], [71, 0.5], [67, 1.5]], // G7
+    HOOK,                                                                  // Dm7
+    [[74, 0.5], [76, 0.25], [74, 0.25], [71, 0.5], [69, 0.5], [67, 0.5], [65, 0.5], [62, 1]], // G7
+  ];
+  const MEL_B = [
+    [[null, 0.5], [69, 0.5], [72, 0.5], [76, 1], [74, 0.5], [72, 1]],      // Fmaj7
+    [[71, 0.5], [67, 0.25], [64, 0.25], [67, 1], [71, 0.5], [74, 1.5]],    // Em7
+    [[null, 0.25], [74, 0.25], [72, 0.25], [69, 0.25], [72, 1], [69, 0.5], [65, 1.5]], // Dm7
+    [[62, 0.5], [65, 0.5], [67, 0.5], [71, 0.5], [74, 2]],                 // G7
+  ];
+
+  const barLen = 4 * spb;
+  let bar = 0;
+  const putClav = times => {
+    for (let r = 0; r < times; r++) {
+      VAMP.forEach((ch, i) => {
+        const t = (bar + i) * barLen;
+        leftBar(ch, t);
+        addSeq(right, CLAV[ch], t, spb, 0.7);
+      });
+      bar += VAMP.length;
+    }
+  };
+  const putMel = (prog, mel, reps) => {
+    for (let r = 0; r < reps; r++) {
+      prog.forEach((ch, i) => {
+        const t = (bar + i) * barLen;
+        leftBar(ch, t);
+        addSeq(right, mel[i], t, spb, 0.85);
+      });
+      bar += prog.length;
+    }
+  };
+
+  putClav(2);                                    // 4 compases de riff
+  putMel(['Dm7', 'G7', 'Dm7', 'G7'], MEL_A, 2);  // 8 de melodía
+  putClav(2);                                    // 4 de riff
+  putMel(['Fmaj7', 'Em7', 'Dm7', 'G7'], MEL_B, 2); // 8 de puente
+  putMel(['Dm7', 'G7', 'Dm7', 'G7'], MEL_A, 2);  // 8 de melodía
+  putClav(2);                                    // 4 de riff final
+  // golpe final: Dm9
+  const tEnd = bar * barLen;
+  addSeq(left, [[[38, 50], 2]], tEnd, spb, 1);
+  addSeq(right, [[[62, 65, 69, 76], 2]], tEnd, spb, 1);
+  return midi;
+}
+
 const SONGS = [
-  { file: 'luna-azul.mid', title: 'Luna Azul (blues romántico) — por Claude ✨', build: buildLunaAzul },
-  { file: 'vaiven.mid', title: 'Vaivén (R&B) — por Claude ✨', build: buildVaiven },
+  { file: 'tren-de-medianoche.mid', title: 'Tren de Medianoche (boogie blues) — por Claude ✨', build: buildTrenDeMedianoche },
+  { file: 'neon.mid', title: 'Neón (R&B funk) — por Claude ✨', build: buildNeon },
   { file: 'sabor-de-verano.mid', title: 'Sabor de Verano (salsa) — por Claude ✨', build: buildSaborDeVerano },
 ];
 
