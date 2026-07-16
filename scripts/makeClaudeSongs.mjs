@@ -250,9 +250,80 @@ function buildNeon() {
   return midi;
 }
 
+// ---------- "Calle Soleada" — soul R&B estilo Motown: bajo caminante + melodía cantable ----------
+
+function buildCalleSoleada() {
+  const BPM = 124;
+  const spb = 60 / BPM;
+  const midi = new Midi();
+  midi.header.setTempo(BPM);
+  const right = midi.addTrack(); right.name = 'right';
+  const left = midi.addTrack(); left.name = 'left';
+
+  // Bajo soul: camina en corcheas continuas (fluido, no entrecortado)
+  const BASS = {
+    C: [48, 48, 55, 60, 57, 55, 52, 55],
+    Am: [45, 45, 52, 57, 55, 52, 48, 52],
+    F: [41, 41, 48, 53, 50, 48, 45, 48],
+    G: [43, 43, 50, 55, 52, 50, 47, 50],
+    Dm: [50, 50, 57, 62, 60, 57, 53, 57],
+    Em: [40, 40, 47, 52, 50, 47, 43, 47],
+  };
+  const leftBar = (name, t) => addSeq(left, BASS[name].map(m => [m, 0.5]), t, spb, 0.9);
+
+  // Progresión doo-wop (la más cantable del soul): C–Am–F–G
+  const PROG_A = ['C', 'Am', 'F', 'G'];
+  const PROG_B = ['Dm', 'G', 'Em', 'Am', 'F', 'G'];
+
+  // Melodía: ganchos fluidos, casi sin silencios, terminando cada frase en nota larga
+  const MEL_A1 = [
+    [[64, 0.5], [67, 0.5], [69, 0.5], [67, 0.5], [72, 1.5], [null, 0.5]],   // C
+    [[72, 0.5], [74, 0.5], [72, 0.5], [69, 0.5], [67, 1], [64, 1]],          // Am
+    [[65, 0.5], [67, 0.5], [69, 1], [65, 1], [60, 1]],                       // F
+    [[62, 0.5], [64, 0.5], [67, 1], [71, 0.5], [74, 1.5]],                   // G
+  ];
+  const MEL_A2 = [
+    [[76, 0.5], [74, 0.5], [72, 0.5], [74, 0.5], [76, 1.5], [null, 0.5]],   // C (respuesta aguda)
+    [[76, 0.5], [77, 0.5], [76, 0.5], [72, 0.5], [69, 2]],                   // Am
+    [[69, 0.5], [72, 0.5], [74, 1], [72, 1], [69, 1]],                       // F
+    [[67, 1], [64, 0.5], [62, 0.5], [60, 2]],                                // G (cierra abajo)
+  ];
+  const MEL_B = [
+    [[62, 0.5], [65, 0.5], [69, 0.5], [65, 0.5], [74, 2]],                   // Dm
+    [[74, 0.5], [71, 0.5], [67, 0.5], [71, 0.5], [74, 2]],                   // G
+    [[76, 0.5], [74, 0.5], [71, 0.5], [67, 0.5], [64, 2]],                   // Em
+    [[64, 0.5], [67, 0.5], [69, 0.5], [72, 0.5], [76, 2]],                   // Am
+    [[77, 0.5], [76, 0.5], [74, 0.5], [72, 0.5], [69, 1], [65, 1]],          // F
+    [[67, 0.5], [69, 0.5], [71, 0.5], [72, 0.5], [74, 2]],                   // G → vuelta arriba
+  ];
+
+  const barLen = 4 * spb;
+  let bar = 0;
+  const put = (chords, melody) => {
+    chords.forEach((ch, i) => {
+      leftBar(ch, (bar + i) * barLen);
+      if (melody) addSeq(right, melody[i], (bar + i) * barLen, spb, 0.88);
+    });
+    bar += chords.length;
+  };
+
+  put(['C', 'G'], null);        // el bajo arranca solo
+  put(PROG_A, MEL_A1);
+  put(PROG_A, MEL_A2);
+  put(PROG_B, MEL_B);
+  put(PROG_A, MEL_A1);
+  put(PROG_A, MEL_A2);
+  // final: acorde de Do con sexta (sabor soul) tras dos golpes
+  const tEnd = bar * barLen;
+  addSeq(right, [[[64, 67, 72], 0.5], [null, 0.5], [[64, 67, 72], 0.5], [null, 0.5], [[64, 67, 69, 72], 2]], tEnd, spb, 0.9);
+  addSeq(left, [[36, 0.5], [null, 0.5], [43, 0.5], [null, 0.5], [[36, 48], 2]], tEnd, spb, 0.9);
+  return midi;
+}
+
 const SONGS = [
   { file: 'tren-de-medianoche.mid', title: 'Tren de Medianoche (boogie blues) — por Claude ✨', build: buildTrenDeMedianoche },
   { file: 'neon.mid', title: 'Neón (R&B funk) — por Claude ✨', build: buildNeon },
+  { file: 'calle-soleada.mid', title: 'Calle Soleada (soul R&B) — por Claude ✨ NUEVA', build: buildCalleSoleada },
   { file: 'sabor-de-verano.mid', title: 'Sabor de Verano (salsa) — por Claude ✨', build: buildSaborDeVerano },
 ];
 
