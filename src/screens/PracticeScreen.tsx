@@ -361,7 +361,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
 
   const coachAction = micMode && guidedPhase === 'repeat'
     ? { label: 'Saltar →', onClick: () => { engineRef.current?.skipPending(); syncExpected(); syncGuidedHint(hasMidi, micMode, micReady); } }
-    : (!micMode && !listenMode && !freeMode && running && expected.size > 0)
+    : (!micMode && !listenMode && !freeMode && !playAlongMode && running && expected.size > 0)
       ? { label: '🔊 ¿Cómo suena?', onClick: () => { [...expected].forEach((m, i) => window.setTimeout(() => playNote(m, 0.8), i * 300)); } }
       : null;
 
@@ -377,7 +377,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
         <button className="btn-ghost" style={{ fontSize: 18, flexShrink: 0 }}
           onClick={() => { if (time > 0 && !ended && !confirm('¿Salir? Perderás la posición actual.')) return; onExit(); }}>✕</button>
         <TimeBar time={time} duration={effectiveSong.duration} seekable={!micMode}
-          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; }} />
+          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; syncExpected(); }} />
         {!micMode && (
           <button className="btn-ghost" style={{ fontSize: 16, flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => {
