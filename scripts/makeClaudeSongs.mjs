@@ -5,6 +5,7 @@
 import pkg from '@tonejs/midi';
 const { Midi } = pkg;
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { SONGS2 } from './claudeSongs-vol2.mjs';
 
 /** Añade una secuencia [midi | midi[] | null, beats] a partir de tStart. */
 function addSeq(track, seq, tStart, spb, legato = 0.9) {
@@ -325,6 +326,7 @@ const SONGS = [
   { file: 'neon.mid', title: 'Neón (R&B funk) — por Claude ✨', build: buildNeon },
   { file: 'calle-soleada.mid', title: 'Calle Soleada (soul R&B) — por Claude ✨ NUEVA', build: buildCalleSoleada },
   { file: 'sabor-de-verano.mid', title: 'Sabor de Verano (salsa) — por Claude ✨', build: buildSaborDeVerano },
+  ...SONGS2,
 ];
 
 mkdirSync('public/songs/claude', { recursive: true });
