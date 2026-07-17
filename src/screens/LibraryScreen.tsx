@@ -76,7 +76,7 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
       onDragLeave={() => setDragging(false)}
       onDrop={e => { e.preventDefault(); setDragging(false); importFiles(e.dataTransfer.files); }}
     >
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <header style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {onBack && <button className="btn-ghost" onClick={onBack} style={{ fontSize: 18 }}>←</button>}
@@ -138,7 +138,7 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
               {showImportHelp ? (
                 <ImportHelpCard />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="grid-2col">
                   {inGroup.map(s => {
                     const { icon, bg } = songIcon(s.id);
                     const pct = s.bestScore ?? 0;

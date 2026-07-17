@@ -146,6 +146,11 @@ select {
   justify-content: center;
   z-index: 50;
 }
+.grid-2col { display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 700px) {
+  .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+}
+
 .sheet {
   position: fixed;
   left: 0;
