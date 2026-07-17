@@ -10,9 +10,13 @@ interface Props {
   onCompleted: () => void;   // marca la lección como completada (persistencia)
   onNextLesson: () => void;
   onExit: () => void;
+  /** Última lección del sendero completo (no solo del nivel). */
+  isPathEnd?: boolean;
+  /** Presente solo si esta lección es la última de su nivel: abre el setup de una canción sugerida. */
+  onPracticeSong?: () => void;
 }
 
-export default function LessonScreen({ lesson, hasNext, onCompleted, onNextLesson, onExit }: Props) {
+export default function LessonScreen({ lesson, hasNext, onCompleted, onNextLesson, onExit, isPathEnd, onPracticeSong }: Props) {
   const [i, setI] = useState(0);
   const [done, setDone] = useState(false);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
@@ -54,11 +58,16 @@ export default function LessonScreen({ lesson, hasNext, onCompleted, onNextLesso
         <div className="overlay">
           <div className="card pop" style={{ width: 'min(92vw, 380px)', textAlign: 'center', padding: 24 }}>
             <div style={{ fontSize: 40 }}>🎉</div>
-            <h2 style={{ fontSize: 22, margin: '8px 0 2px' }}>¡Lección completada!</h2>
+            <h2 style={{ fontSize: 22, margin: '8px 0 2px' }}>
+              {isPathEnd ? '🏆 ¡Teoría básica completada!' : '¡Lección completada!'}
+            </h2>
             <p style={{ color: 'var(--ink-3)', marginBottom: 18 }}>{lesson.title}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {hasNext && <button className="btn-primary" onClick={onNextLesson}>Siguiente lección →</button>}
-              <button className={hasNext ? '' : 'btn-primary'} onClick={onExit}>Volver al sendero</button>
+              {onPracticeSong && (
+                <button className={hasNext ? '' : 'btn-primary'} onClick={onPracticeSong}>🎵 Practicar una canción</button>
+              )}
+              <button className={!hasNext && !onPracticeSong ? 'btn-primary' : ''} onClick={onExit}>Volver al sendero</button>
             </div>
           </div>
         </div>

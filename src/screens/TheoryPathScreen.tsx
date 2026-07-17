@@ -55,6 +55,8 @@ export default function TheoryPathScreen({ completed, onOpen, onExit }: Props) {
             </div>
           );
         })}
+
+        <div className="card" style={{ opacity: 0.7, textAlign: 'center' }}>🚧 Más niveles en camino…</div>
       </div>
     </div>
   );

@@ -13,6 +13,9 @@ interface Props {
   onBack: () => void;
   onStart: (config: SessionConfig) => void;
   initialValues?: SessionConfig | null;
+  /** Nivel 1 de teoría sin completar: muestra el banner "¿Nuevo en el piano?". */
+  theoryHint?: boolean;
+  onGoTheory?: () => void;
 }
 
 const DOOR_COLORS: Record<Door, { border: string; bg: string }> = {
@@ -22,7 +25,7 @@ const DOOR_COLORS: Record<Door, { border: string; bg: string }> = {
   play: { border: 'var(--left-soft)', bg: 'var(--left-pale)' },
 };
 
-export default function SongSetupScreen({ song, onBack, onStart, initialValues }: Props) {
+export default function SongSetupScreen({ song, onBack, onStart, initialValues, theoryHint, onGoTheory }: Props) {
   const [door, setDoor] = useState<Door>(initialValues?.door ?? 'learn');
   const [input, setInput] = useState<InputKind | null>(initialValues?.input ?? null); // null = automático
   const [changingInput, setChangingInput] = useState(false);
@@ -55,6 +58,12 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues }
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
         <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 10 }}>← Volver</button>
         <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12 }}>¿Cómo quieres practicar «{song.title}»?</h1>
+
+        {theoryHint && (
+          <button className="coach coach-info" style={{ width: '100%', cursor: 'pointer', marginBottom: 10 }} onClick={onGoTheory}>
+            ¿Nuevo en el piano? Aprende las notas en Teoría →
+          </button>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
           {(Object.keys(DOOR_LABELS) as Door[]).map(d => {

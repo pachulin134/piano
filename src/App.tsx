@@ -85,6 +85,20 @@ export default function App() {
     return idx >= 0 && idx + 1 < flatLessons.length ? flatLessons[idx + 1] : null;
   };
 
+  /** Canción sugerida para el puente Teoría→Canciones: la más fácil sin récord;
+   *  si todas tienen récord, la más fácil de todas. Null si la biblioteca está vacía. */
+  const suggestSong = useCallback((): Song | null => {
+    if (songs.length === 0) return null;
+    const withoutScore = songs.filter(s => s.bestScore === null);
+    const pool = withoutScore.length > 0 ? withoutScore : songs;
+    return pool.reduce((best, s) => (s.difficulty < best.difficulty ? s : best), pool[0]);
+  }, [songs]);
+
+  const goPracticeSuggestion = useCallback(() => {
+    const s = suggestSong();
+    if (s) { setLesson(null); setArea('songs'); openSong(s); }
+  }, [suggestSong, openSong]);
+
   if (session) {
     return (
       <PracticeScreen
@@ -103,6 +117,8 @@ export default function App() {
         song={setupSong}
         onBack={() => setSetupSong(null)}
         initialValues={setupInitial}
+        theoryHint={!LEVELS[0].lessons.every(ls => completed.has(ls.id))}
+        onGoTheory={() => { setSetupSong(null); setArea('theory'); }}
         onStart={config => {
           prefs.saveSongPrefs(setupSong.id, config);
           prefs.saveLastSession(setupSong.id, config);
@@ -114,10 +130,14 @@ export default function App() {
   }
   if (lesson) {
     const nxt = nextOf(lesson.lesson.id);
+    const lvl = LEVELS.find(l => l.id === lesson.levelId);
+    const isLastOfLevel = !!lvl && lvl.lessons[lvl.lessons.length - 1].id === lesson.lesson.id;
     return (
       <LessonScreen
         lesson={lesson.lesson}
         hasNext={!!nxt}
+        isPathEnd={!nxt}
+        onPracticeSong={isLastOfLevel ? goPracticeSuggestion : undefined}
         onCompleted={() => theoryStore.markCompleted(lesson.lesson.id).then(refreshTheory)}
         onNextLesson={() => { if (nxt) setLesson(nxt); }}
         onExit={() => setLesson(null)}
