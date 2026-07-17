@@ -96,8 +96,16 @@ export default function App() {
 
   const goPracticeSuggestion = useCallback(() => {
     const s = suggestSong();
-    if (s) { setLesson(null); setArea('songs'); openSong(s); }
-  }, [suggestSong, openSong]);
+    if (!s) return;
+    // Navegación diferida hasta tener las prefs: evita el parpadeo de la
+    // biblioteca entre la lección y el setup de la canción sugerida.
+    prefs.getSongPrefs(s.id).then(cfg => {
+      setSetupInitial(cfg);
+      setSetupSong(s);
+      setLesson(null);
+      setArea('songs');
+    });
+  }, [suggestSong, prefs]);
 
   if (session) {
     return (
@@ -137,7 +145,7 @@ export default function App() {
         lesson={lesson.lesson}
         hasNext={!!nxt}
         isPathEnd={!nxt}
-        onPracticeSong={isLastOfLevel ? goPracticeSuggestion : undefined}
+        onPracticeSong={isLastOfLevel && songs.length > 0 ? goPracticeSuggestion : undefined}
         onCompleted={() => theoryStore.markCompleted(lesson.lesson.id).then(refreshTheory)}
         onNextLesson={() => { if (nxt) setLesson(nxt); }}
         onExit={() => setLesson(null)}
