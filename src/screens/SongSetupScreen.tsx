@@ -53,11 +53,10 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues }
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 20 }}>
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 12 }}>← Volver</button>
-        <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 2 }}>{song.title}</h1>
-        <p style={{ color: 'var(--ink-3)', marginBottom: 18 }}>¿Qué quieres hacer hoy?</p>
+        <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 10 }}>← Volver</button>
+        <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12 }}>¿Cómo quieres practicar «{song.title}»?</h1>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
           {(Object.keys(DOOR_LABELS) as Door[]).map(d => {
             const meta = DOOR_LABELS[d];
             const active = door === d;
@@ -67,65 +66,38 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues }
                 onClick={() => setDoor(d)}
                 className="card"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', padding: 10,
                   border: active ? `2px solid ${DOOR_COLORS[d].border}` : '1px solid var(--border)',
                 }}
               >
-                <div style={{
-                  width: 46, height: 46, borderRadius: 14, background: DOOR_COLORS[d].bg, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                }}>
-                  {meta.icon}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 800 }}>
+                <div style={{ fontSize: 20, flexShrink: 0 }}>{meta.icon}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
                     {meta.title}
-                    {d === 'learn' && <span className="chip" style={{ marginLeft: 8, fontSize: 11 }}>Recomendado</span>}
+                    {d === 'learn' && <span style={{ color: 'var(--right-soft)', fontSize: 16, lineHeight: 1 }}>●</span>}
                   </div>
-                  <div style={{ color: 'var(--ink-3)', fontSize: 13 }}>{meta.hint}</div>
+                  <div style={{
+                    color: 'var(--ink-3)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>{meta.hint}</div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {door !== 'listen' && (
-          <div className="chip" style={{ marginBottom: 6 }}>
-            {effectiveInput === 'midi' ? '🎹' : effectiveInput === 'mic' ? '🎤' : '👆'}
-            {' '}Te escucho por: <strong>{INPUT_LABELS[effectiveInput]}</strong>
-            {availableInputs.length > 1 && (
-              <button className="btn-ghost" style={{ padding: '0 4px', fontSize: 13 }}
-                onClick={() => setChangingInput(v => !v)}>
-                cambiar
-              </button>
-            )}
-          </div>
-        )}
-        {changingInput && door !== 'listen' && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-            {availableInputs.map(k => (
-              <button key={k} className="chip"
-                style={{ border: effectiveInput === k ? '2px solid var(--right)' : '1px solid var(--border)', cursor: 'pointer' }}
-                onClick={() => { setInput(k); setChangingInput(false); }}>
-                {INPUT_LABELS[k]}
-              </button>
-            ))}
-          </div>
-        )}
-        {door !== 'listen' && effectiveInput === 'screen' && !hasMidi && (
-          <p style={{ color: 'var(--ink-3)', fontSize: 12, marginBottom: 10 }}>
-            Cuando conectes el cable MIDI-USB, tu piano aparecerá aquí automáticamente.
-          </p>
-        )}
-
-        {door === 'follow' && (
-          <label className="chip" style={{ marginBottom: 10, cursor: 'pointer' }}>
-            <input type="checkbox" checked={appSound} onChange={e => setAppSound(e.target.checked)} />
-            🔊 La app toca las notas (apágalo para tocar solo tú)
-          </label>
-        )}
-
-        <div className="card" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          {door !== 'listen' && (
+            <span className="chip">
+              {effectiveInput === 'midi' ? '🎹' : effectiveInput === 'mic' ? '🎤' : '👆'}
+              {' '}<strong>{INPUT_LABELS[effectiveInput]}</strong>
+              {availableInputs.length > 1 && (
+                <button className="btn-ghost" style={{ padding: '0 4px', fontSize: 13 }}
+                  onClick={() => setChangingInput(v => !v)}>
+                  cambiar
+                </button>
+              )}
+            </span>
+          )}
           <label>Nivel{' '}
             <select value={level} onChange={e => setLevel(e.target.value as Level)}>
               {(Object.keys(LEVEL_LABELS) as Level[]).map(l =>
@@ -150,12 +122,34 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues }
               </select>
             </label>
           )}
+          {door === 'follow' && (
+            <label className="chip" style={{ cursor: 'pointer' }}>
+              <input type="checkbox" checked={appSound} onChange={e => setAppSound(e.target.checked)} />
+              🔊 Sonido de la app
+            </label>
+          )}
         </div>
 
+        {changingInput && door !== 'listen' && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+            {availableInputs.map(k => (
+              <button key={k} className="chip"
+                style={{ border: effectiveInput === k ? '2px solid var(--right)' : '1px solid var(--border)', cursor: 'pointer' }}
+                onClick={() => { setInput(k); setChangingInput(false); }}>
+                {INPUT_LABELS[k]}
+              </button>
+            ))}
+          </div>
+        )}
+        {door !== 'listen' && effectiveInput === 'screen' && !hasMidi && (
+          <p style={{ color: 'var(--ink-3)', fontSize: 11, marginBottom: 8 }}>
+            Cuando conectes el cable MIDI-USB, tu piano aparecerá aquí automáticamente.
+          </p>
+        )}
+
         {door === 'learn' && effectiveInput === 'mic' && (
-          <p style={{ color: 'var(--ink-3)', fontSize: 13, marginBottom: 14 }}>
-            🎤 Consejos: sitio tranquilo, micrófono cerca del piano, nivel <strong>Fácil</strong> y velocidad 50%.
-            El navegador pedirá permiso.
+          <p style={{ color: 'var(--ink-3)', fontSize: 12, marginBottom: 10 }}>
+            🎤 Consejo: sitio tranquilo, micro cerca del piano, nivel <strong>Fácil</strong> y 50%.
           </p>
         )}
 

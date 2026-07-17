@@ -332,7 +332,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     } catch {
       setAudioError(true);
     }
-    setCountingDown(true); // con o sin sonido, se puede practicar
+    // Reanudar (tiempo > 0) va directo a running; el 3-2-1 es solo para el
+    // arranque desde 0 (primera vez o tras ⟲ Reiniciar).
+    const engineTime = engineRef.current?.time ?? 0;
+    if (engineTime > 0) {
+      setRunning(true);
+    } else {
+      setCountingDown(true); // con o sin sonido, se puede practicar
+    }
   };
   const beginAfterCountdown = useCallback(() => {
     setCountingDown(false);

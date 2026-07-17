@@ -19,10 +19,10 @@ export interface SessionConfig {
 }
 
 export const DOOR_LABELS: Record<Door, { icon: string; title: string; hint: string }> = {
-  listen: { icon: '🎧', title: 'Escuchar', hint: 'Mira y escucha cómo suena' },
-  follow: { icon: '👀', title: 'Seguir la canción', hint: 'Avanza sola; tú tocas sin corrección' },
-  learn: { icon: '🪜', title: 'Aprender paso a paso', hint: 'Nota a nota, a tu ritmo' },
-  play: { icon: '🎹', title: 'Tocar con la canción', hint: 'A ritmo real, como un concierto' },
+  listen: { icon: '🎧', title: 'Escuchar', hint: 'Mira cómo suena' },
+  follow: { icon: '👀', title: 'Seguir', hint: 'Tú tocas, sin corrección' },
+  learn: { icon: '🪜', title: 'Aprender', hint: 'Nota a nota, te espera' },
+  play: { icon: '🎹', title: 'Tocar', hint: 'A ritmo real, te puntúa' },
 };
 
 export const INPUT_LABELS: Record<InputKind, string> = {
