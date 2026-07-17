@@ -54,13 +54,17 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues, 
   ];
 
   return (
-    <div style={{ height: '100%', overflowY: 'auto', padding: 20 }}>
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <button className="btn-ghost" onClick={onBack} style={{ marginBottom: 10 }}>← Volver</button>
-        <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12 }}>¿Cómo quieres practicar «{song.title}»?</h1>
+    <div style={{ height: '100%', overflowY: 'auto', padding: '12px 20px' }}>
+      {/* 760 de ancho: en iPhone apaisado (~840) la fila de opciones cabe en UNA línea
+          y la pantalla completa entra sin scroll (presupuesto de alto del spec §2). */}
+      <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <button className="btn-ghost" onClick={onBack}>←</button>
+          <h1 style={{ fontSize: 19, fontWeight: 800 }}>¿Cómo quieres practicar «{song.title}»?</h1>
+        </div>
 
         {theoryHint && (
-          <button className="coach coach-info" style={{ width: '100%', cursor: 'pointer', marginBottom: 10 }} onClick={onGoTheory}>
+          <button className="coach coach-info" style={{ width: '100%', cursor: 'pointer', marginBottom: 8, fontSize: 12, padding: '5px 12px' }} onClick={onGoTheory}>
             ¿Nuevo en el piano? Aprende las notas en Teoría →
           </button>
         )}
