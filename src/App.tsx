@@ -41,6 +41,16 @@ export default function App() {
   const refresh = useCallback(() => store.list().then(setSongs), [store]);
 
   /** Guarda la puntuación al terminar la canción, sin salir de la pantalla. */
+  /** Ajustes cambiados en vivo (⚙): la sesión y la memoria por canción se actualizan. */
+  const handleConfigChange = useCallback((config: SessionConfig) => {
+    const prev = sessionRef.current;
+    if (!prev) return;
+    setSession(s => (s ? { ...s, config } : s));
+    prefs.saveSongPrefs(prev.song.id, config);
+    prefs.saveLastSession(prev.song.id, config);
+    setLastSession({ songId: prev.song.id, config });
+  }, [prefs]);
+
   const handleFinish = useCallback((score: number | null) => {
     const prev = sessionRef.current;
     if (score !== null && prev) {
@@ -79,6 +89,7 @@ export default function App() {
         song={session.song}
         initialConfig={session.config}
         onFinish={handleFinish}
+        onConfigChange={handleConfigChange}
         onExit={handleExit}
         onChangeMode={() => { setSetupInitial(session.config); setSession(null); }}
       />

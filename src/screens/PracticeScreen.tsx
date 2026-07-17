@@ -23,11 +23,13 @@ interface Props {
   song: Song;
   initialConfig: SessionConfig;
   onFinish: (score: number | null) => void; // guarda récord sin salir
+  /** Ajustes cambiados en vivo (⚙): para que la memoria por canción no se quede anticuada. */
+  onConfigChange?: (config: SessionConfig) => void;
   onExit: () => void;
   onChangeMode: () => void;
 }
 
-export default function PracticeScreen({ song, initialConfig, onFinish, onExit, onChangeMode }: Props) {
+export default function PracticeScreen({ song, initialConfig, onFinish, onConfigChange, onExit, onChangeMode }: Props) {
   const resolved = useMemo(() => resolveEngineMode(initialConfig), [initialConfig]);
   const [config, setConfig] = useState<EngineConfig>(resolved.engine);
   const micMode = resolved.micMode;
@@ -111,6 +113,22 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onExit, 
     speedRef.current = speed;
     engineRef.current?.setSpeed(speed);
   }, [speed]);
+
+  // Los ajustes vivos (⚙) se comunican hacia arriba para que la memoria por
+  // canción refleje lo último afinado, no solo lo elegido al empezar.
+  const configReportedRef = useRef(false);
+  useEffect(() => {
+    if (!configReportedRef.current) { configReportedRef.current = true; return; } // no en el montaje
+    onConfigChange?.({
+      door: initialConfig.door,
+      input: initialConfig.input,
+      level,
+      speed,
+      hand: config.hand,
+      waitMode: config.waitMode,
+      appSound,
+    });
+  }, [level, speed, config.hand, config.waitMode, appSound, initialConfig.door, initialConfig.input, onConfigChange]);
 
   // Bucle: se aplica/limpia sin recrear el motor
   useEffect(() => {

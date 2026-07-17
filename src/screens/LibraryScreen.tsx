@@ -98,7 +98,8 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
           <div className="coach coach-warn" style={{ marginBottom: 12 }}>Suelta aquí tu archivo .mid 👇</div>
         )}
 
-        {songs.length === 0 && <ImportHelpCard />}
+        {/* La ayuda de importar vive en el grupo "Tus canciones" (evita duplicarla
+            cuando los catálogos de fábrica fallan y la lista queda vacía). */}
 
         {songs.length > 0 && (
           <>
