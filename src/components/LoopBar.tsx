@@ -48,7 +48,7 @@ export default function LoopBar({ duration, start, end, currentTime, onChange, o
 
   const pct = (t: number) => `${duration > 0 ? (t / duration) * 100 : 0}%`;
   const handleStyle: CSSProperties = {
-    position: 'absolute', top: -10, width: 32, height: 32, marginLeft: -16,
+    position: 'absolute', top: -14, width: 40, height: 40, marginLeft: -20,
     borderRadius: '50%', background: 'var(--right)', color: '#fff',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: 12, fontWeight: 800, touchAction: 'none',
@@ -67,9 +67,9 @@ export default function LoopBar({ duration, start, end, currentTime, onChange, o
         <div style={{ ...handleStyle, left: pct(start) }} onPointerDown={dragHandle('a')}>A</div>
         <div style={{ ...handleStyle, left: pct(end), background: 'var(--left)' }} onPointerDown={dragHandle('b')}>B</div>
       </div>
-      <button className="btn-ghost" style={{ fontSize: 12, padding: 4 }} onClick={onSetAHere}>A aquí</button>
-      <button className="btn-ghost" style={{ fontSize: 12, padding: 4 }} onClick={onSetBHere}>B aquí</button>
-      <button className="btn-ghost" style={{ fontSize: 14, padding: 4 }} onClick={onClear}>✕</button>
+      <button className="btn-ghost" style={{ fontSize: 12 }} onClick={onSetAHere}>A aquí</button>
+      <button className="btn-ghost" style={{ fontSize: 12 }} onClick={onSetBHere}>B aquí</button>
+      <button className="btn-ghost" style={{ fontSize: 14 }} onClick={onClear}>✕</button>
     </div>
   );
 }

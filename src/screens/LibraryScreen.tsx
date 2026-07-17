@@ -19,10 +19,40 @@ function songIcon(id: string): { icon: string; bg: string } {
   return { icon: SONG_ICONS[h % SONG_ICONS.length], bg: ICON_BGS[h % ICON_BGS.length] };
 }
 
+const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+type Order = 'nombre' | 'dificultad' | 'duracion';
+const ORDER_LABELS: Record<Order, string> = { nombre: 'Nombre', dificultad: 'Dificultad', duracion: 'Duración' };
+
+const GROUPS = [
+  { key: 'user', title: '📁 Tus canciones', match: (s: Song) => !s.id.startsWith('claude:') && !s.id.startsWith('builtin:') },
+  { key: 'claude', title: '✨ Creadas para ti', match: (s: Song) => s.id.startsWith('claude:') },
+  { key: 'builtin', title: '🎁 Incluidas', match: (s: Song) => s.id.startsWith('builtin:') },
+];
+
+/** Tarjeta de ayuda para importar la primera canción propia. */
+function ImportHelpCard() {
+  return (
+    <div className="card" style={{ textAlign: 'center', padding: 40 }}>
+      <div style={{ fontSize: 48 }}>🎹</div>
+      <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>Añade tu primera canción</p>
+      <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Arrastra un .mid aquí o pulsa "+ Añadir".</p>
+    </div>
+  );
+}
+
 export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [query, setQuery] = useState('');
+  const [order, setOrder] = useState<Order>('nombre');
+
+  const matches = (s: Song) => norm(s.title + ' ' + (s.style ?? '')).includes(norm(query));
+  const sortFn = (a: Song, b: Song) =>
+    order === 'dificultad' ? a.difficulty - b.difficulty
+    : order === 'duracion' ? a.duration - b.duration
+    : a.title.localeCompare(b.title, 'es');
 
   async function importFiles(files: FileList | null) {
     setError(null);
@@ -68,61 +98,91 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
           <div className="coach coach-warn" style={{ marginBottom: 12 }}>Suelta aquí tu archivo .mid 👇</div>
         )}
 
-        {songs.length === 0 && (
-          <div className="card" style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 48 }}>🎹</div>
-            <p style={{ fontWeight: 700, margin: '10px 0 4px' }}>Añade tu primera canción</p>
-            <p style={{ color: 'var(--ink-3)', fontSize: 14 }}>Arrastra un archivo .mid a esta ventana o pulsa "+ Añadir".</p>
-          </div>
+        {songs.length === 0 && <ImportHelpCard />}
+
+        {songs.length > 0 && (
+          <>
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Buscar por nombre o estilo…"
+              className="chip"
+              style={{ width: '100%', padding: '10px 14px', border: '1px solid var(--border)', marginBottom: 10 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+              {(Object.keys(ORDER_LABELS) as Order[]).map(o => (
+                <button
+                  key={o}
+                  className="chip"
+                  style={{ border: order === o ? '2px solid var(--right)' : '1px solid var(--border)', cursor: 'pointer' }}
+                  onClick={() => setOrder(o)}
+                >
+                  {ORDER_LABELS[o]}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
-        {([
-          { key: 'claude', title: '✨ Creadas para ti', match: (s: Song) => s.id.startsWith('claude:') },
-          { key: 'builtin', title: '🎁 Incluidas', match: (s: Song) => s.id.startsWith('builtin:') },
-          { key: 'user', title: '📁 Tus canciones', match: (s: Song) => !s.id.startsWith('claude:') && !s.id.startsWith('builtin:') },
-        ]).map(group => {
-          const inGroup = songs.filter(group.match);
-          if (inGroup.length === 0) return null;
+        {GROUPS.map(group => {
+          const inGroup = songs.filter(group.match).filter(matches).sort(sortFn);
+          const showImportHelp = group.key === 'user' && query === '' && songs.filter(group.match).length === 0;
+          if (inGroup.length === 0 && !showImportHelp) return null;
           return (
             <section key={group.key} style={{ marginBottom: 18 }}>
               <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink-2)', margin: '0 0 8px 2px', letterSpacing: 0.5 }}>
                 {group.title}
               </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {inGroup.map(s => {
-            const { icon, bg } = songIcon(s.id);
-            const pct = s.bestScore ?? 0;
-            return (
-              <div key={s.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
-                  width: 46, height: 46, borderRadius: 14, background: bg, flexShrink: 0,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-                }}>
-                  {icon}
+              {showImportHelp ? (
+                <ImportHelpCard />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {inGroup.map(s => {
+                    const { icon, bg } = songIcon(s.id);
+                    const pct = s.bestScore ?? 0;
+                    return (
+                      <div
+                        key={s.id}
+                        className="card"
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                        onClick={() => onOpen(s)}
+                      >
+                        <div style={{
+                          width: 46, height: 46, borderRadius: 14, background: bg, flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+                        }}>
+                          {icon}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                          <div style={{ color: 'var(--ink-3)', fontSize: 12, margin: '2px 0 6px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <span>
+                              {'★'.repeat(s.difficulty)}{'☆'.repeat(5 - s.difficulty)} · {Math.round(s.duration)}s
+                              {s.bestScore !== null && ` · mejor: ${s.bestScore}%`}
+                            </span>
+                            {s.style && <span className="chip" style={{ fontSize: 11, padding: '2px 8px' }}>{s.style}</span>}
+                          </div>
+                          {s.bestScore === null ? (
+                            <span className="chip" style={{ fontSize: 11 }}>Nueva</span>
+                          ) : (
+                            <div style={{ height: 6, background: 'var(--bg-chip)', borderRadius: 3 }}>
+                              <div style={{
+                                width: `${pct}%`, height: 6, borderRadius: 3,
+                                background: pct >= 80 ? 'linear-gradient(90deg, #7bc47f, #4a9e50)' : 'linear-gradient(90deg, #f5a623, #e8734a)',
+                              }} />
+                            </div>
+                          )}
+                        </div>
+                        {group.key === 'user' && (
+                          <button className="btn-ghost" onClick={e => { e.stopPropagation(); if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
+                        )}
+                        <span style={{ color: 'var(--ink-3)', fontSize: 18 }}>›</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
-                  <div style={{ color: 'var(--ink-3)', fontSize: 12, margin: '2px 0 6px' }}>
-                    {'★'.repeat(s.difficulty)}{'☆'.repeat(5 - s.difficulty)} · {Math.round(s.duration)}s
-                    {s.bestScore !== null && ` · mejor: ${s.bestScore}%`}
-                  </div>
-                  <div style={{ height: 6, background: 'var(--bg-chip)', borderRadius: 3 }}>
-                    <div style={{
-                      width: `${pct}%`, height: 6, borderRadius: 3,
-                      background: pct >= 80 ? 'linear-gradient(90deg, #7bc47f, #4a9e50)' : 'linear-gradient(90deg, #f5a623, #e8734a)',
-                    }} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <button className="btn-primary" onClick={() => onOpen(s)} style={{ padding: '8px 14px' }}>Aprender</button>
-                  {group.key === 'user' && (
-                    <button className="btn-ghost" onClick={() => { if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
-                  )}
-                </div>
-              </div>
-            );
-                })}
-              </div>
+              )}
             </section>
           );
         })}

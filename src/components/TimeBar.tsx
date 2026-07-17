@@ -44,7 +44,7 @@ export default function TimeBar({ time, duration, seekable, onSeek }: Props) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
       {seekable && (
-        <button className="btn-ghost" style={{ fontSize: 13, padding: '2px 4px', flexShrink: 0 }}
+        <button className="btn-ghost" style={{ fontSize: 13, flexShrink: 0 }}
           onClick={() => onSeek(Math.max(0, time - 5))}>
           ⏪5s
         </button>
