@@ -483,14 +483,14 @@ function buildCumbiaDeEstrellas() {
 }
 
 export const SONGS2 = [
-  { file: 'vals-de-la-plaza.mid', title: 'Vals de la Plaza (vals criollo) — por Claude ✨', build: buildValsDeLaPlaza },
-  { file: 'mambo-caliente.mid', title: 'Mambo Caliente (salsa) — por Claude ✨', build: buildMamboCaliente },
-  { file: 'cha-cha-del-parque.mid', title: 'Cha-Cha del Parque (cha-cha-chá) — por Claude ✨', build: buildChaCha },
-  { file: 'blues-del-corazon.mid', title: 'Blues del Corazón (blues romántico) — por Claude ✨', build: buildBluesDelCorazon },
-  { file: 'rock-del-garaje.mid', title: 'Rock del Garaje (rock and roll) — por Claude ✨', build: buildRockDelGaraje },
-  { file: 'ragtime-de-feria.mid', title: 'Ragtime de Feria (ragtime) — por Claude ✨', build: buildRagtimeDeFeria },
-  { file: 'tango-del-farol.mid', title: 'Tango del Farol (tango) — por Claude ✨', build: buildTangoDelFarol },
-  { file: 'swing-de-la-esquina.mid', title: 'Swing de la Esquina (jazz) — por Claude ✨', build: buildSwingDeLaEsquina },
-  { file: 'bachata-de-la-luna.mid', title: 'Bachata de la Luna (bachata) — por Claude ✨', build: buildBachataDeLaLuna },
-  { file: 'cumbia-de-estrellas.mid', title: 'Cumbia de Estrellas (cumbia) — por Claude ✨', build: buildCumbiaDeEstrellas },
+  { file: 'vals-de-la-plaza.mid', title: 'Vals de la Plaza', style: 'vals criollo', build: buildValsDeLaPlaza },
+  { file: 'mambo-caliente.mid', title: 'Mambo Caliente', style: 'salsa', build: buildMamboCaliente },
+  { file: 'cha-cha-del-parque.mid', title: 'Cha-Cha del Parque', style: 'cha-cha-chá', build: buildChaCha },
+  { file: 'blues-del-corazon.mid', title: 'Blues del Corazón', style: 'blues romántico', build: buildBluesDelCorazon },
+  { file: 'rock-del-garaje.mid', title: 'Rock del Garaje', style: 'rock and roll', build: buildRockDelGaraje },
+  { file: 'ragtime-de-feria.mid', title: 'Ragtime de Feria', style: 'ragtime', build: buildRagtimeDeFeria },
+  { file: 'tango-del-farol.mid', title: 'Tango del Farol', style: 'tango', build: buildTangoDelFarol },
+  { file: 'swing-de-la-esquina.mid', title: 'Swing de la Esquina', style: 'jazz swing', build: buildSwingDeLaEsquina },
+  { file: 'bachata-de-la-luna.mid', title: 'Bachata de la Luna', style: 'bachata', build: buildBachataDeLaLuna },
+  { file: 'cumbia-de-estrellas.mid', title: 'Cumbia de Estrellas', style: 'cumbia', build: buildCumbiaDeEstrellas },
 ];

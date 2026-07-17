@@ -16,6 +16,7 @@ interface CatalogItem {
   file: string;
   title: string;
   id?: string;
+  style?: string;
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -51,7 +52,9 @@ async function loadCatalog(
     for (const item of index) {
       const id = item.id ?? idFor(item);
       const buf = await (await fetch(`${baseUrl}${item.file}`)).arrayBuffer();
-      songs.push(parseMidi(buf, item.title, id));
+      const parsed = parseMidi(buf, item.title, id);
+      if (item.style) parsed.style = item.style;
+      songs.push(parsed);
     }
     return songs;
   } catch {

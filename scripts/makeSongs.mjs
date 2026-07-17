@@ -8,17 +8,17 @@ const { Midi } = pkg;
 // [midi, beats] — negra = 1 beat, 100 bpm
 const SONGS = [
   {
-    file: 'estrellita.mid', title: 'Estrellita (Twinkle Twinkle)',
+    file: 'estrellita.mid', title: 'Estrellita (Twinkle Twinkle)', style: 'infantil',
     right: [[60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],[65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]],
     left:  [[48,2],[52,2],[53,2],[48,2],[53,2],[48,2],[55,2],[48,2]],
   },
   {
-    file: 'himno-alegria.mid', title: 'Himno de la Alegría (Beethoven)',
+    file: 'himno-alegria.mid', title: 'Himno de la Alegría (Beethoven)', style: 'clásica',
     right: [[64,1],[64,1],[65,1],[67,1],[67,1],[65,1],[64,1],[62,1],[60,1],[60,1],[62,1],[64,1],[64,1.5],[62,0.5],[62,2]],
     left:  [[48,2],[55,2],[52,2],[55,2],[48,2],[55,2],[43,2],[48,2]],
   },
   {
-    file: 'cumpleanos.mid', title: 'Cumpleaños Feliz',
+    file: 'cumpleanos.mid', title: 'Cumpleaños Feliz', style: 'celebración',
     right: [[60,0.75],[60,0.25],[62,1],[60,1],[65,1],[64,2],[60,0.75],[60,0.25],[62,1],[60,1],[67,1],[65,2]],
     left:  [[48,3],[43,3],[48,3],[41,2],[43,2],[48,2]],
   },
@@ -42,5 +42,5 @@ for (const s of SONGS) {
   writeFileSync(`public/songs/${s.file}`, Buffer.from(midi.toArray()));
 }
 writeFileSync('public/songs/index.json',
-  JSON.stringify(SONGS.map(s => ({ file: s.file, title: s.title })), null, 2));
+  JSON.stringify(SONGS.map(s => ({ file: s.file, title: s.title, style: s.style })), null, 2));
 console.log(`Generadas ${SONGS.length} canciones en public/songs/`);

@@ -14,6 +14,7 @@ export interface Song {
   duration: number;  // segundos
   difficulty: 1 | 2 | 3 | 4 | 5;
   bestScore: number | null; // % 0..100
+  style?: string; // estilo musical (chip en la biblioteca)
 }
 
 export interface NoteGroup {

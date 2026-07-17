@@ -1,58 +1,72 @@
 [
   {
     "file": "tren-de-medianoche.mid",
-    "title": "Tren de Medianoche (boogie blues) — por Claude ✨"
+    "title": "Tren de Medianoche",
+    "style": "boogie blues"
   },
   {
     "file": "neon.mid",
-    "title": "Neón (R&B funk) — por Claude ✨"
+    "title": "Neón",
+    "style": "R&B funk"
   },
   {
     "file": "calle-soleada.mid",
-    "title": "Calle Soleada (soul R&B) — por Claude ✨ NUEVA"
+    "title": "Calle Soleada",
+    "style": "soul R&B"
   },
   {
     "file": "sabor-de-verano.mid",
-    "title": "Sabor de Verano (salsa) — por Claude ✨"
+    "title": "Sabor de Verano",
+    "style": "salsa"
   },
   {
     "file": "vals-de-la-plaza.mid",
-    "title": "Vals de la Plaza (vals criollo) — por Claude ✨"
+    "title": "Vals de la Plaza",
+    "style": "vals criollo"
   },
   {
     "file": "mambo-caliente.mid",
-    "title": "Mambo Caliente (salsa) — por Claude ✨"
+    "title": "Mambo Caliente",
+    "style": "salsa"
   },
   {
     "file": "cha-cha-del-parque.mid",
-    "title": "Cha-Cha del Parque (cha-cha-chá) — por Claude ✨"
+    "title": "Cha-Cha del Parque",
+    "style": "cha-cha-chá"
   },
   {
     "file": "blues-del-corazon.mid",
-    "title": "Blues del Corazón (blues romántico) — por Claude ✨"
+    "title": "Blues del Corazón",
+    "style": "blues romántico"
   },
   {
     "file": "rock-del-garaje.mid",
-    "title": "Rock del Garaje (rock and roll) — por Claude ✨"
+    "title": "Rock del Garaje",
+    "style": "rock and roll"
   },
   {
     "file": "ragtime-de-feria.mid",
-    "title": "Ragtime de Feria (ragtime) — por Claude ✨"
+    "title": "Ragtime de Feria",
+    "style": "ragtime"
   },
   {
     "file": "tango-del-farol.mid",
-    "title": "Tango del Farol (tango) — por Claude ✨"
+    "title": "Tango del Farol",
+    "style": "tango"
   },
   {
     "file": "swing-de-la-esquina.mid",
-    "title": "Swing de la Esquina (jazz) — por Claude ✨"
+    "title": "Swing de la Esquina",
+    "style": "jazz swing"
   },
   {
     "file": "bachata-de-la-luna.mid",
-    "title": "Bachata de la Luna (bachata) — por Claude ✨"
+    "title": "Bachata de la Luna",
+    "style": "bachata"
   },
   {
     "file": "cumbia-de-estrellas.mid",
-    "title": "Cumbia de Estrellas (cumbia) — por Claude ✨"
+    "title": "Cumbia de Estrellas",
+    "style": "cumbia"
   }
 ]

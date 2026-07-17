@@ -322,10 +322,10 @@ function buildCalleSoleada() {
 }
 
 const SONGS = [
-  { file: 'tren-de-medianoche.mid', title: 'Tren de Medianoche (boogie blues) — por Claude ✨', build: buildTrenDeMedianoche },
-  { file: 'neon.mid', title: 'Neón (R&B funk) — por Claude ✨', build: buildNeon },
-  { file: 'calle-soleada.mid', title: 'Calle Soleada (soul R&B) — por Claude ✨ NUEVA', build: buildCalleSoleada },
-  { file: 'sabor-de-verano.mid', title: 'Sabor de Verano (salsa) — por Claude ✨', build: buildSaborDeVerano },
+  { file: 'tren-de-medianoche.mid', title: 'Tren de Medianoche', style: 'boogie blues', build: buildTrenDeMedianoche },
+  { file: 'neon.mid', title: 'Neón', style: 'R&B funk', build: buildNeon },
+  { file: 'calle-soleada.mid', title: 'Calle Soleada', style: 'soul R&B', build: buildCalleSoleada },
+  { file: 'sabor-de-verano.mid', title: 'Sabor de Verano', style: 'salsa', build: buildSaborDeVerano },
   ...SONGS2,
 ];
 
@@ -334,5 +334,5 @@ for (const s of SONGS) {
   writeFileSync(`public/songs/claude/${s.file}`, Buffer.from(s.build().toArray()));
 }
 writeFileSync('public/songs/claude/index.json',
-  JSON.stringify(SONGS.map(s => ({ file: s.file, title: s.title })), null, 2));
+  JSON.stringify(SONGS.map(s => ({ file: s.file, title: s.title, style: s.style })), null, 2));
 console.log(`Compuestas ${SONGS.length} piezas en public/songs/claude/`);

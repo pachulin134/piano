@@ -1,14 +1,17 @@
 [
   {
     "file": "estrellita.mid",
-    "title": "Estrellita (Twinkle Twinkle)"
+    "title": "Estrellita (Twinkle Twinkle)",
+    "style": "infantil"
   },
   {
     "file": "himno-alegria.mid",
-    "title": "Himno de la Alegría (Beethoven)"
+    "title": "Himno de la Alegría (Beethoven)",
+    "style": "clásica"
   },
   {
     "file": "cumpleanos.mid",
-    "title": "Cumpleaños Feliz"
+    "title": "Cumpleaños Feliz",
+    "style": "celebración"
   }
 ]
