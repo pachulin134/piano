@@ -6,6 +6,7 @@ import TheoryPathScreen from './screens/TheoryPathScreen';
 import LessonScreen from './screens/LessonScreen';
 import { createSongStore } from './storage/songStore';
 import { createTheoryStore } from './storage/theoryStore';
+import { createPrefsStore } from './storage/prefsStore';
 import { LEVELS } from './core/theory/content';
 import type { SessionConfig } from './core/sessionModes';
 import type { Song } from './core/types';
@@ -18,15 +19,24 @@ interface PracticeSession {
 
 export default function App() {
   const store = useMemo(() => createSongStore(), []);
+  const prefs = useMemo(() => createPrefsStore(), []);
   const [songs, setSongs] = useState<Song[]>([]);
   const [setupSong, setSetupSong] = useState<Song | null>(null);
+  const [setupInitial, setSetupInitial] = useState<SessionConfig | null>(null);
   const [session, setSession] = useState<PracticeSession | null>(null);
+  const [lastSession, setLastSession] = useState<{ songId: string; config: SessionConfig } | null>(null);
   const sessionRef = useRef<PracticeSession | null>(null);
   useEffect(() => { sessionRef.current = session; }, [session]);
 
   useEffect(() => {
     store.list().then(setSongs);
   }, [store]);
+
+  useEffect(() => { prefs.getLastSession().then(setLastSession); }, [prefs]);
+
+  const openSong = useCallback((s: Song) => {
+    prefs.getSongPrefs(s.id).then(cfg => { setSetupInitial(cfg); setSetupSong(s); });
+  }, [prefs]);
 
   const refresh = useCallback(() => store.list().then(setSongs), [store]);
 
@@ -70,7 +80,7 @@ export default function App() {
         initialConfig={session.config}
         onFinish={handleFinish}
         onExit={handleExit}
-        onChangeMode={() => setSession(null)}
+        onChangeMode={() => { setSetupInitial(session.config); setSession(null); }}
       />
     );
   }
@@ -79,7 +89,13 @@ export default function App() {
       <SongSetupScreen
         song={setupSong}
         onBack={() => setSetupSong(null)}
-        onStart={config => setSession({ song: setupSong, config })}
+        initialValues={setupInitial}
+        onStart={config => {
+          prefs.saveSongPrefs(setupSong.id, config);
+          prefs.saveLastSession(setupSong.id, config);
+          setLastSession({ songId: setupSong.id, config });
+          setSession({ song: setupSong, config });
+        }}
       />
     );
   }
@@ -110,7 +126,7 @@ export default function App() {
         songs={songs}
         onAdd={handleAdd}
         onRemove={handleRemove}
-        onOpen={setSetupSong}
+        onOpen={openSong}
         onBack={() => setArea('home')}
       />
     );
@@ -120,6 +136,20 @@ export default function App() {
       <div style={{ maxWidth: 460, margin: '0 auto', width: '100%' }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Piano Trainer</h1>
         <p style={{ color: 'var(--ink-3)', marginBottom: 22 }}>¿Qué quieres hacer hoy?</p>
+        {lastSession && (() => {
+          const s = songs.find(x => x.id === lastSession.songId);
+          if (!s) return null;
+          return (
+            <button className="card" style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'center', textAlign: 'left', marginBottom: 12, border: '2px solid var(--right-soft)' }}
+              onClick={() => setSession({ song: s, config: lastSession.config })}>
+              <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--right-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>▶</div>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 18 }}>Seguir con {s.title}</div>
+                <div style={{ color: 'var(--ink-3)', fontSize: 13 }}>Como la última vez — directo a tocar</div>
+              </div>
+            </button>
+          );
+        })()}
         <button className="card" style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'center', textAlign: 'left', marginBottom: 12 }}
           onClick={() => setArea('songs')}>
           <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--right-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🎵</div>

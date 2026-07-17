@@ -12,6 +12,7 @@ interface Props {
   song: Song;
   onBack: () => void;
   onStart: (config: SessionConfig) => void;
+  initialValues?: SessionConfig | null;
 }
 
 const DOOR_COLORS: Record<Door, { border: string; bg: string }> = {
@@ -21,14 +22,14 @@ const DOOR_COLORS: Record<Door, { border: string; bg: string }> = {
   play: { border: 'var(--left-soft)', bg: 'var(--left-pale)' },
 };
 
-export default function SongSetupScreen({ song, onBack, onStart }: Props) {
-  const [door, setDoor] = useState<Door>('learn');
-  const [input, setInput] = useState<InputKind | null>(null); // null = automático
+export default function SongSetupScreen({ song, onBack, onStart, initialValues }: Props) {
+  const [door, setDoor] = useState<Door>(initialValues?.door ?? 'learn');
+  const [input, setInput] = useState<InputKind | null>(initialValues?.input ?? null); // null = automático
   const [changingInput, setChangingInput] = useState(false);
-  const [level, setLevel] = useState<Level>('original');
-  const [speed, setSpeed] = useState(1);
-  const [hand, setHand] = useState<EngineConfig['hand']>('both');
-  const [appSound, setAppSound] = useState(true);
+  const [level, setLevel] = useState<Level>(initialValues?.level ?? 'easy');
+  const [speed, setSpeed] = useState(initialValues?.speed ?? 0.6);
+  const [hand, setHand] = useState<EngineConfig['hand']>(initialValues?.hand ?? 'both');
+  const [appSound, setAppSound] = useState(initialValues?.appSound ?? true);
   const midiDevice = useMidiInput(() => {});
   const hasMidi = !!midiDevice && midiDevice !== 'unsupported';
 
