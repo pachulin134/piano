@@ -78,6 +78,8 @@ export default function App() {
   const refreshTheory = useCallback(() => theoryStore.listCompleted().then(ids => setCompleted(new Set(ids))), [theoryStore]);
 
   const flatLessons = useMemo(() => LEVELS.flatMap(lv => lv.lessons.map(ls => ({ levelId: lv.id, lesson: ls }))), []);
+  const totalLessons = useMemo(() => LEVELS.reduce((a, l) => a + l.lessons.length, 0), []);
+  const withScore = songs.filter(s => s.bestScore !== null).length;
   const nextOf = (lessonId: string) => {
     const idx = flatLessons.findIndex(x => x.lesson.id === lessonId);
     return idx >= 0 && idx + 1 < flatLessons.length ? flatLessons[idx + 1] : null;
@@ -164,12 +166,12 @@ export default function App() {
         <button className="card" style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'center', textAlign: 'left', marginBottom: 12 }}
           onClick={() => setArea('songs')}>
           <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--right-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>🎵</div>
-          <div><div style={{ fontWeight: 800, fontSize: 18 }}>Canciones</div><div style={{ color: 'var(--ink-3)', fontSize: 13 }}>Aprende y practica tus canciones</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18 }}>Canciones</div><div style={{ color: 'var(--ink-3)', fontSize: 13 }}>{songs.length} canciones · {withScore} con récord</div></div>
         </button>
         <button className="card" style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'center', textAlign: 'left' }}
           onClick={() => setArea('theory')}>
           <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--listen-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>📚</div>
-          <div><div style={{ fontWeight: 800, fontSize: 18 }}>Teoría</div><div style={{ color: 'var(--ink-3)', fontSize: 13 }}>Entiende el piano paso a paso</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 18 }}>Teoría</div><div style={{ color: 'var(--ink-3)', fontSize: 13 }}>{completed.size >= totalLessons ? '¡Teoría básica completada! 🏆' : `${completed.size}/${totalLessons} lecciones completadas`}</div></div>
         </button>
       </div>
     </div>
