@@ -5,7 +5,6 @@ import { computeStreak } from './streak';
 const TODAY = '2026-07-18';
 const YESTERDAY = '2026-07-17';
 const DAY_BEFORE = '2026-07-16';
-const TWO_DAYS_AGO = '2026-07-16';
 
 describe('computeStreak', () => {
   it('lista vacía → 0', () => {
