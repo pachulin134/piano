@@ -12,13 +12,18 @@ interface Props {
   /** Solo en modo libre: interruptor "la app toca las notas". null = no mostrar. */
   appSound: boolean | null;
   onAppSound?: (on: boolean) => void;
+  /** null = no mostrar (modo micrófono, reloj por pasos). */
+  metronome: boolean | null;
+  onMetronome?: (on: boolean) => void;
+  volume: number;
+  onVolume?: (pct: number) => void;
   onChange: (patch: Partial<{ level: Level; speed: number; hand: EngineConfig['hand']; waitMode: boolean }>) => void;
   onClose: () => void;
   onRestart: () => void;
 }
 
-/** Hoja inferior de ajustes. Cambiar nivel/mano conserva la posición (lo gestiona el padre); velocidad y sonido se aplican al momento. */
-export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, appSound, onAppSound, onChange, onClose, onRestart }: Props) {
+/** Hoja inferior de ajustes. Cambiar nivel/mano conserva la posición (lo gestiona el padre); velocidad, sonido y volumen se aplican al momento. */
+export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMode, showHand, appSound, onAppSound, metronome, onMetronome, volume, onVolume, onChange, onClose, onRestart }: Props) {
   return (
     <>
       <div className="overlay" onClick={onClose} />
@@ -45,6 +50,16 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
             />
             <span style={{ width: 44, fontWeight: 700, textAlign: 'right' }}>{Math.round(speed * 100)}%</span>
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 90, color: 'var(--ink-2)' }}>Volumen 🔊</span>
+            <input
+              type="range" min={0} max={100} step={5}
+              value={volume}
+              onChange={e => onVolume?.(Number(e.target.value))}
+              style={{ flex: 1 }}
+            />
+            <span style={{ width: 44, fontWeight: 700, textAlign: 'right' }}>{volume}%</span>
+          </label>
           {showHand && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 90, color: 'var(--ink-2)' }}>Mano</span>
@@ -62,6 +77,13 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
               <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>pausa hasta que toques la nota</span>
             </label>
           )}
+          {metronome !== null && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ width: 90, color: 'var(--ink-2)' }}>Metrónomo 🥁</span>
+              <input type="checkbox" checked={metronome} onChange={e => onMetronome?.(e.target.checked)} />
+              <span style={{ color: 'var(--ink-3)', fontSize: 13 }}>clic en cada pulso</span>
+            </label>
+          )}
           {appSound !== null && (
             <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ width: 90, color: 'var(--ink-2)' }}>Sonido</span>
@@ -70,7 +92,7 @@ export default function SettingsSheet({ level, speed, hand, waitMode, showWaitMo
             </label>
           )}
           <button onClick={onRestart} style={{ alignSelf: 'flex-start' }}>⟲ Reiniciar canción</button>
-          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>La velocidad y el sonido se aplican al momento; al cambiar nivel o mano se mantiene tu posición.</p>
+          <p style={{ color: 'var(--ink-3)', fontSize: 12 }}>La velocidad, el volumen y el sonido se aplican al momento; al cambiar nivel o mano se mantiene tu posición.</p>
         </div>
       </div>
     </>

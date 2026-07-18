@@ -3,7 +3,7 @@ import Keyboard from '../components/Keyboard';
 import NoteFall from '../components/NoteFall';
 import { PracticeEngine, type EngineConfig } from '../core/practiceEngine';
 import { fitRange } from '../core/keyLayout';
-import { initPiano, playNote } from '../audio/piano';
+import { initPiano, playClick, playNote } from '../audio/piano';
 import { matchExpected, midiToName, nearestExpected } from '../audio/pitchDetect';
 import { useMidiInput } from '../input/useMidiInput';
 import { useMicPitch } from '../input/useMicPitch';
@@ -25,11 +25,16 @@ interface Props {
   onFinish: (score: number | null) => void; // guarda récord sin salir
   /** Ajustes cambiados en vivo (⚙): para que la memoria por canción no se quede anticuada. */
   onConfigChange?: (config: SessionConfig) => void;
+  /** % recorrido (0..100) al terminar o salir, para modos sin puntuación. */
+  onProgress?: (pct: number) => void;
+  /** Volumen global (0..100), controlado por App. */
+  volume: number;
+  onVolume?: (pct: number) => void;
   onExit: () => void;
   onChangeMode: () => void;
 }
 
-export default function PracticeScreen({ song, initialConfig, onFinish, onConfigChange, onExit, onChangeMode }: Props) {
+export default function PracticeScreen({ song, initialConfig, onFinish, onConfigChange, onProgress, volume, onVolume, onExit, onChangeMode }: Props) {
   const resolved = useMemo(() => resolveEngineMode(initialConfig), [initialConfig]);
   const [config, setConfig] = useState<EngineConfig>(resolved.engine);
   const micMode = resolved.micMode;
@@ -56,10 +61,12 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
   const [countingDown, setCountingDown] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [ended, setEnded] = useState<null | { score: number | null }>(null);
+  const [metronome, setMetronome] = useState(false);
   const engineRef = useRef<PracticeEngine | undefined>(undefined);
   const feedbackTimer = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef(0);
   const songIdRef = useRef(song.id);
+  const prevBeatRef = useRef(-1);
 
   const listenMode = !!config.listenMode;
   const guidedMode = !!config.guidedMode;
@@ -106,6 +113,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     setStreak(0);
     setMaxStreak(0);
     setEnded(null);
+    prevBeatRef.current = -1;
   }, [effectiveSong, config]);
 
   // Velocidad viva: se aplica al motor sin recrearlo
@@ -287,6 +295,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     if (micMode) syncGuidedHint(hasMidi, true, micReady);
   }, [micMode, hasMidi, micReady, running, syncGuidedHint]);
 
+  // % recorrido para modos sin puntuación (biblioteca lo muestra como barra azul).
+  const reportProgress = useCallback(() => {
+    const duration = effectiveSong.duration;
+    if (duration <= 0) return;
+    const t = engineRef.current?.time ?? 0;
+    onProgress?.(Math.round(100 * t / duration));
+  }, [effectiveSong.duration, onProgress]);
+
   useEffect(() => {
     if (!running) return;
     let raf = 0;
@@ -304,6 +320,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
       if (engine.time < lastTimeRef.current - 0.5 && loopRef.current) showFeedback('🔁 Otra vez desde A', 1200);
       setTime(engine.time);
       lastTimeRef.current = engine.time;
+      if (metronome && running) {
+        const beatLen = 60 / (song.bpm ?? 120);
+        const b = Math.floor(engine.time / beatLen);
+        if (b !== prevBeatRef.current) {
+          prevBeatRef.current = b;
+          playClick(b % 4 === 0);
+        }
+      }
       if (interactive) syncExpected();
       if (guidedMode) syncGuidedHint(hasMidi, micMode, micReady);
       if (engine.attempted) setLiveScore(engine.score());
@@ -316,6 +340,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
           && engine.attempted;
         const score = scored ? engine.score() : null;
         setEnded({ score });
+        if (engine.time > 0) reportProgress();
         onFinish(score);
         return;
       }
@@ -323,7 +348,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound, showFeedback]);
+  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound, showFeedback, metronome, song.bpm, reportProgress]);
 
   const start = async () => {
     try {
@@ -400,9 +425,13 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <div style={{ height: barH, display: 'flex', gap: 10, alignItems: 'center', padding: '0 12px' }}>
         <button className="btn-ghost" style={{ fontSize: 18, flexShrink: 0 }}
-          onClick={() => { if (time > 0 && !ended && !confirm('¿Salir? Perderás la posición actual.')) return; onExit(); }}>✕</button>
+          onClick={() => {
+            if (time > 0 && !ended && !confirm('¿Salir? Perderás la posición actual.')) return;
+            if (time > 0) reportProgress();
+            onExit();
+          }}>✕</button>
         <TimeBar time={time} duration={effectiveSong.duration} seekable={!micMode}
-          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; syncExpected(); }} />
+          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; syncExpected(); prevBeatRef.current = -1; }} />
         {!micMode && (
           <button className="btn-ghost" style={{ fontSize: 16, flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => {
@@ -452,6 +481,10 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
           showHand={!listenMode && !freeMode}
           appSound={freeMode ? appSound : null}
           onAppSound={setAppSound}
+          metronome={micMode ? null : metronome}
+          onMetronome={setMetronome}
+          volume={volume}
+          onVolume={onVolume}
           onChange={patch => {
             if (patch.level !== undefined) setLevel(patch.level);
             if (patch.speed !== undefined) setSpeedState(patch.speed);

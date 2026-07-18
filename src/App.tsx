@@ -8,9 +8,13 @@ import { createSongStore } from './storage/songStore';
 import { createTheoryStore } from './storage/theoryStore';
 import { createPrefsStore } from './storage/prefsStore';
 import { LEVELS } from './core/theory/content';
+import { computeStreak } from './core/streak';
+import { setVolume } from './audio/piano';
 import type { SessionConfig } from './core/sessionModes';
 import type { Song } from './core/types';
 import type { Lesson } from './core/theory/types';
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
 
 interface PracticeSession {
   song: Song;
@@ -27,6 +31,20 @@ export default function App() {
   const [lastSession, setLastSession] = useState<{ songId: string; config: SessionConfig } | null>(null);
   const sessionRef = useRef<PracticeSession | null>(null);
   useEffect(() => { sessionRef.current = session; }, [session]);
+
+  // Volumen global (no por canción): se aplica al montar y en cada cambio.
+  const [volume, setVolumeState] = useState(80);
+  useEffect(() => { setVolume(volume); }, [volume]);
+
+  // Racha diaria de práctica.
+  const [streak, setStreak] = useState(0);
+  const refreshStreak = useCallback(() => {
+    prefs.listPracticeDays().then(days => setStreak(computeStreak(days, todayISO())));
+  }, [prefs]);
+  useEffect(() => { refreshStreak(); }, [refreshStreak]);
+  const recordToday = useCallback(() => {
+    prefs.recordPracticeDay(todayISO()).then(refreshStreak);
+  }, [prefs, refreshStreak]);
 
   useEffect(() => {
     store.list().then(setSongs);
@@ -56,6 +74,13 @@ export default function App() {
     if (score !== null && prev) {
       store.recordScore(prev.song.id, score).then(refresh);
     }
+  }, [store, refresh]);
+
+  /** % recorrido en modos sin puntuación (biblioteca lo muestra como barra azul). */
+  const handleProgress = useCallback((pct: number) => {
+    const prev = sessionRef.current;
+    if (!prev) return;
+    store.recordPlayed(prev.song.id, pct).then(refresh);
   }, [store, refresh]);
 
   const handleExit = useCallback(() => {
@@ -114,6 +139,9 @@ export default function App() {
         initialConfig={session.config}
         onFinish={handleFinish}
         onConfigChange={handleConfigChange}
+        onProgress={handleProgress}
+        volume={volume}
+        onVolume={setVolumeState}
         onExit={handleExit}
         onChangeMode={() => { setSetupInitial(session.config); setSession(null); }}
       />
@@ -131,6 +159,7 @@ export default function App() {
           prefs.saveSongPrefs(setupSong.id, config);
           prefs.saveLastSession(setupSong.id, config);
           setLastSession({ songId: setupSong.id, config });
+          recordToday();
           setSession({ song: setupSong, config });
         }}
       />
@@ -146,7 +175,7 @@ export default function App() {
         hasNext={!!nxt}
         isPathEnd={!nxt}
         onPracticeSong={isLastOfLevel && songs.length > 0 ? goPracticeSuggestion : undefined}
-        onCompleted={() => theoryStore.markCompleted(lesson.lesson.id).then(refreshTheory)}
+        onCompleted={() => { theoryStore.markCompleted(lesson.lesson.id).then(refreshTheory); recordToday(); }}
         onNextLesson={() => { if (nxt) setLesson(nxt); }}
         onExit={() => setLesson(null)}
       />
@@ -175,14 +204,17 @@ export default function App() {
   return (
     <div style={{ height: '100%', overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
       <div style={{ maxWidth: 460, margin: '0 auto', width: '100%' }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 4 }}>Piano Trainer</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800 }}>Piano Trainer</h1>
+          {streak >= 2 && <span className="chip">🔥 Racha: {streak} días</span>}
+        </div>
         <p style={{ color: 'var(--ink-3)', marginBottom: 22 }}>¿Qué quieres hacer hoy?</p>
         {lastSession && (() => {
           const s = songs.find(x => x.id === lastSession.songId);
           if (!s) return null;
           return (
             <button className="card" style={{ width: '100%', display: 'flex', gap: 14, alignItems: 'center', textAlign: 'left', marginBottom: 12, border: '2px solid var(--right-soft)' }}
-              onClick={() => setSession({ song: s, config: lastSession.config })}>
+              onClick={() => { recordToday(); setSession({ song: s, config: lastSession.config }); }}>
               <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--right-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26 }}>▶</div>
               <div>
                 <div style={{ fontWeight: 800, fontSize: 18 }}>Seguir con {s.title}</div>
