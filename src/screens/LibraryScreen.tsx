@@ -6,6 +6,7 @@ interface Props {
   songs: Song[];
   onAdd: (song: Song, midi: ArrayBuffer) => void | Promise<void>;
   onRemove: (id: string) => void;
+  onRename: (id: string, title: string) => void;
   onOpen: (song: Song) => void;
   onBack?: () => void;
 }
@@ -41,7 +42,7 @@ function ImportHelpCard() {
   );
 }
 
-export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }: Props) {
+export default function LibraryScreen({ songs, onAdd, onRemove, onRename, onOpen, onBack }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -141,7 +142,7 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
                 <div className="grid-2col">
                   {inGroup.map(s => {
                     const { icon, bg } = songIcon(s.id);
-                    const pct = s.bestScore ?? 0;
+                    const pct = s.bestScore ?? s.playedPct ?? 0;
                     return (
                       <div
                         key={s.id}
@@ -161,20 +162,30 @@ export default function LibraryScreen({ songs, onAdd, onRemove, onOpen, onBack }
                             <span>
                               {'★'.repeat(s.difficulty)}{'☆'.repeat(5 - s.difficulty)} · {Math.round(s.duration)}s
                               {s.bestScore !== null && ` · mejor: ${s.bestScore}%`}
+                              {s.bestScore === null && s.playedPct !== undefined && ` · recorrida: ${s.playedPct}%`}
                             </span>
                             {s.style && <span className="chip" style={{ fontSize: 11, padding: '2px 8px' }}>{s.style}</span>}
                           </div>
-                          {s.bestScore === null ? (
+                          {s.bestScore === null && s.playedPct === undefined ? (
                             <span className="chip" style={{ fontSize: 11 }}>Nueva</span>
                           ) : (
                             <div style={{ height: 6, background: 'var(--bg-chip)', borderRadius: 3 }}>
                               <div style={{
                                 width: `${pct}%`, height: 6, borderRadius: 3,
-                                background: pct >= 80 ? 'linear-gradient(90deg, #7bc47f, #4a9e50)' : 'linear-gradient(90deg, #f5a623, #e8734a)',
+                                background: s.bestScore !== null
+                                  ? (pct >= 80 ? 'linear-gradient(90deg, #7bc47f, #4a9e50)' : 'linear-gradient(90deg, #f5a623, #e8734a)')
+                                  : 'var(--listen)',
                               }} />
                             </div>
                           )}
                         </div>
+                        {group.key === 'user' && (
+                          <button className="btn-ghost" onClick={e => {
+                            e.stopPropagation();
+                            const t = prompt('Nuevo nombre', s.title);
+                            if (t && t.trim()) onRename(s.id, t.trim());
+                          }}>✏️</button>
+                        )}
                         {group.key === 'user' && (
                           <button className="btn-ghost" onClick={e => { e.stopPropagation(); if (confirm(`¿Borrar "${s.title}"?`)) onRemove(s.id); }}>🗑</button>
                         )}

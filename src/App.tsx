@@ -93,6 +93,7 @@ export default function App() {
     refresh();
   }, [store, refresh]);
   const handleRemove = useCallback(async (id: string) => { await store.remove(id); refresh(); }, [store, refresh]);
+  const handleRename = useCallback(async (id: string, title: string) => { await store.rename(id, title); refresh(); }, [store, refresh]);
 
   const theoryStore = useMemo(() => createTheoryStore(), []);
   const [area, setArea] = useState<'home' | 'songs' | 'theory'>('home');
@@ -196,6 +197,7 @@ export default function App() {
         songs={songs}
         onAdd={handleAdd}
         onRemove={handleRemove}
+        onRename={handleRename}
         onOpen={openSong}
         onBack={() => setArea('home')}
       />
