@@ -57,4 +57,39 @@ describe('songStore', () => {
     await store.remove('claude:cielo-abierto.mid');
     expect((await store.list()).map(s => s.id)).toEqual(['claude:cielo-abierto.mid']);
   });
+
+  it('rename aplica el título y sobrevive a read()', async () => {
+    const store = createSongStore(memoryKV());
+    await store.add(song('a'));
+    await store.rename('a', 'Nuevo título');
+    expect((await store.list()).find(s => s.id === 'a')?.title).toBe('Nuevo título');
+  });
+
+  it('rename con título en blanco no cambia nada', async () => {
+    const store = createSongStore(memoryKV());
+    await store.add(song('a'));
+    await store.rename('a', '   ');
+    expect((await store.list()).find(s => s.id === 'a')?.title).toBe('a');
+  });
+
+  it('remove de un id no-fábrica lo oculta de list() aunque "exista" (reaparece en legacy)', async () => {
+    const kv = memoryKV();
+    const store = createSongStore(kv);
+    await store.add(song('u1'));
+    await store.remove('u1');
+    expect((await store.list()).map(s => s.id)).not.toContain('u1');
+
+    // Simula que la canción "reaparece" (p.ej. un borrado de disco que falló en prod
+    // y el legacy se repuebla desde otra fuente): sigue oculta gracias a hidden-v1.
+    await kv.set('songs-v1', [song('u1')]);
+    expect((await store.list()).map(s => s.id)).not.toContain('u1');
+  });
+
+  it('recordPlayed guarda el máximo recorrido (60 luego 40 se queda en 60)', async () => {
+    const store = createSongStore(memoryKV());
+    await store.add(song('a'));
+    await store.recordPlayed('a', 60);
+    await store.recordPlayed('a', 40);
+    expect((await store.list()).find(s => s.id === 'a')?.playedPct).toBe(60);
+  });
 });

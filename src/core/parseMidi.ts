@@ -28,6 +28,7 @@ export function parseMidi(data: ArrayBuffer, title: string, id?: string): Song {
   if (notes.length === 0) throw new Error('El archivo MIDI no contiene notas');
 
   const duration = notes.reduce((max, n) => Math.max(max, n.time + n.duration), 0);
+  const bpm = Math.round(midi.header.tempos[0]?.bpm ?? 120);
   const song: Song = {
     id: id ?? uid(),
     title,
@@ -35,6 +36,7 @@ export function parseMidi(data: ArrayBuffer, title: string, id?: string): Song {
     duration,
     difficulty: 3,
     bestScore: null,
+    bpm,
   };
   song.difficulty = estimateDifficulty(song);
   return song;

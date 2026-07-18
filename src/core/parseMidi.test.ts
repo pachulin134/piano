@@ -77,4 +77,18 @@ describe('parseMidi', () => {
     const times = song.notes.map(n => n.time);
     expect(times).toEqual([...times].sort((a, b) => a - b));
   });
+
+  it('extrae el bpm del primer tempo del MIDI', () => {
+    const midi = new Midi();
+    midi.header.setTempo(100);
+    const t = midi.addTrack();
+    t.addNote({ midi: 60, time: 0, duration: 0.5 });
+    const song = parseMidi(midi.toArray().buffer as ArrayBuffer, 'Tempo');
+    expect(song.bpm).toBe(100);
+  });
+
+  it('sin tempo explícito, el bpm por defecto es 120', () => {
+    const song = parseMidi(singleTrackMidi(), 'SinTempo');
+    expect(song.bpm).toBe(120);
+  });
 });

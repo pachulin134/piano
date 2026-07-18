@@ -9,8 +9,13 @@ export interface KV {
 
 const SCORES_KEY = 'scores-v1';
 const LEGACY_SONGS_KEY = 'songs-v1';
+const TITLES_KEY = 'titles-v1';
+const HIDDEN_KEY = 'hidden-v1';
+const PLAYED_KEY = 'played-v1';
 
 type ScoresMap = Record<string, number>;
+type TitlesMap = Record<string, string>;
+type PlayedMap = Record<string, number>;
 
 interface CatalogItem {
   file: string;
@@ -39,6 +44,38 @@ function applyScores(songs: Song[], scores: ScoresMap): Song[] {
     ...s,
     bestScore: scores[s.id] ?? s.bestScore ?? null,
   }));
+}
+
+async function readTitles(kv: KV): Promise<TitlesMap> {
+  return ((await kv.get(TITLES_KEY)) as TitlesMap | undefined) ?? {};
+}
+
+async function writeTitles(kv: KV, titles: TitlesMap): Promise<void> {
+  await kv.set(TITLES_KEY, titles);
+}
+
+function applyTitles(songs: Song[], titles: TitlesMap): Song[] {
+  return songs.map(s => (titles[s.id] ? { ...s, title: titles[s.id] } : s));
+}
+
+async function readHidden(kv: KV): Promise<string[]> {
+  return ((await kv.get(HIDDEN_KEY)) as string[] | undefined) ?? [];
+}
+
+async function writeHidden(kv: KV, hidden: string[]): Promise<void> {
+  await kv.set(HIDDEN_KEY, hidden);
+}
+
+async function readPlayed(kv: KV): Promise<PlayedMap> {
+  return ((await kv.get(PLAYED_KEY)) as PlayedMap | undefined) ?? {};
+}
+
+async function writePlayed(kv: KV, played: PlayedMap): Promise<void> {
+  await kv.set(PLAYED_KEY, played);
+}
+
+function applyPlayed(songs: Song[], played: PlayedMap): Song[] {
+  return songs.map(s => (played[s.id] !== undefined ? { ...s, playedPct: played[s.id] } : s));
 }
 
 async function loadCatalog(
@@ -97,6 +134,9 @@ async function removeFromDisk(id: string): Promise<boolean> {
 export function createSongStore(kv: KV = { get, set }) {
   const read = async (): Promise<Song[]> => {
     const scores = await readScores(kv);
+    const titles = await readTitles(kv);
+    const played = await readPlayed(kv);
+    const hidden = await readHidden(kv);
     const claude = await loadCatalog(
       'songs/claude/index.json',
       'songs/claude/',
@@ -121,7 +161,8 @@ export function createSongStore(kv: KV = { get, set }) {
       seen.add(s.id);
       songs.push(s);
     }
-    return applyScores(songs, scores);
+    const visible = songs.filter(s => !hidden.includes(s.id));
+    return applyPlayed(applyTitles(applyScores(visible, scores), titles), played);
   };
 
   const writeLegacy = async (songs: Song[]) => kv.set(LEGACY_SONGS_KEY, songs);
@@ -139,6 +180,13 @@ export function createSongStore(kv: KV = { get, set }) {
     async remove(id: string): Promise<void> {
       // Las colecciones de fábrica (incluidas y compuestas por Claude) no se borran
       if (id.startsWith('builtin:') || id.startsWith('claude:')) return;
+
+      // Borrado suave: se oculta siempre, sea o no posible el borrado físico
+      // (idempotente; así funciona también en producción sin API de disco).
+      const hidden = await readHidden(kv);
+      if (!hidden.includes(id)) {
+        await writeHidden(kv, [...hidden, id]);
+      }
 
       if (await removeFromDisk(id)) {
         const scores = await readScores(kv);
@@ -166,6 +214,21 @@ export function createSongStore(kv: KV = { get, set }) {
           s.id === id ? { ...s, bestScore: score } : s,
         ));
       }
+    },
+    async rename(id: string, title: string): Promise<void> {
+      const trimmed = title.trim();
+      if (!trimmed) return;
+      const titles = await readTitles(kv);
+      titles[id] = trimmed;
+      await writeTitles(kv, titles);
+    },
+    async recordPlayed(id: string, pct: number): Promise<void> {
+      const clamped = Math.round(Math.max(0, Math.min(100, pct)));
+      const played = await readPlayed(kv);
+      const prev = played[id] ?? 0;
+      if (clamped <= prev) return;
+      played[id] = clamped;
+      await writePlayed(kv, played);
     },
   };
 }

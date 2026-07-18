@@ -15,6 +15,8 @@ export interface Song {
   difficulty: 1 | 2 | 3 | 4 | 5;
   bestScore: number | null; // % 0..100
   style?: string; // estilo musical (chip en la biblioteca)
+  bpm?: number; // tempo del MIDI (primer setTempo, redondeado; 120 si no hay)
+  playedPct?: number; // % 0..100 recorrido (modos sin puntuación)
 }
 
 export interface NoteGroup {

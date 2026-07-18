@@ -8,6 +8,8 @@ export interface KV {
 
 const PREFS_KEY = 'prefs-v1';
 const LAST_KEY = 'last-session-v1';
+const PRACTICE_DAYS_KEY = 'practice-days-v1';
+const MAX_PRACTICE_DAYS = 60;
 
 export function createPrefsStore(kv: KV = { get, set }) {
   const readAll = async (): Promise<Record<string, SessionConfig>> =>
@@ -25,6 +27,15 @@ export function createPrefsStore(kv: KV = { get, set }) {
     },
     async saveLastSession(songId: string, config: SessionConfig): Promise<void> {
       await kv.set(LAST_KEY, { songId, config });
+    },
+    async listPracticeDays(): Promise<string[]> {
+      return ((await kv.get(PRACTICE_DAYS_KEY)) as string[] | undefined) ?? [];
+    },
+    async recordPracticeDay(date: string): Promise<void> {
+      const days = ((await kv.get(PRACTICE_DAYS_KEY)) as string[] | undefined) ?? [];
+      if (days.includes(date)) return;
+      const trimmed = [...days, date].slice(-MAX_PRACTICE_DAYS);
+      await kv.set(PRACTICE_DAYS_KEY, trimmed);
     },
   };
 }
