@@ -68,5 +68,10 @@
     "file": "cumbia-de-estrellas.mid",
     "title": "Cumbia de Estrellas",
     "style": "cumbia"
+  },
+  {
+    "file": "bola-de-espejos.mid",
+    "title": "Bola de Espejos",
+    "style": "disco"
   }
 ]

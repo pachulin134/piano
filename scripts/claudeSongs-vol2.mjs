@@ -482,6 +482,61 @@ function buildCumbiaDeEstrellas() {
   return midi;
 }
 
+// ---------- 11. "Bola de Espejos" — disco: bajo de octavas y gancho de cuerdas ----------
+
+function buildBolaDeEspejos() {
+  const { midi, right, left, spb } = newSong(120);
+  // Bajo disco: octavas en corcheas SIN parar (el latido de la pista de baile)
+  const ROOTS = { Am: 45, Dm: 50, G: 43, C: 48, F: 41, E7: 40 };
+  const lhBar = (n, t) => {
+    const r = ROOTS[n];
+    for (let i = 0; i < 8; i++) {
+      left.addNote({ midi: i % 2 === 0 ? r : r + 12, time: t + i * 0.5 * spb, duration: 0.5 * spb * 0.85 });
+    }
+  };
+  // La vuelta armónica del disco clásico (círculo descendente)
+  const PROG = ['Am', 'Dm', 'G', 'C', 'F', 'Dm', 'E7', 'Am'];
+  const MEL = bars(4, [
+    [[69, 0.5], [72, 0.5], [76, 1], [74, 0.5], [72, 0.5], [71, 1]],
+    [[74, 0.5], [77, 0.5], [74, 1], [72, 0.5], [69, 0.5], [65, 1]],
+    [[67, 0.5], [71, 0.5], [74, 1], [72, 0.5], [71, 0.5], [67, 1]],
+    [[72, 1.5], [74, 0.5], [76, 2]],
+    [[77, 0.5], [76, 0.5], [74, 0.5], [72, 0.5], [69, 1.5], [null, 0.5]],
+    [[65, 0.5], [69, 0.5], [74, 1], [72, 0.5], [71, 0.5], [69, 1]],
+    [[68, 0.5], [71, 0.5], [74, 1], [76, 0.5], [74, 0.5], [71, 1]],
+    [[69, 2], [72, 1], [76, 1]],
+  ], 'disco mel');
+  // Acordes a contratiempo (el "uh" de los violines disco)
+  const STAB = {
+    Am: [69, 72, 76], Dm: [65, 69, 74], G: [67, 71, 74], C: [67, 72, 76],
+    F: [65, 69, 72], E7: [68, 71, 76],
+  };
+  const stabBar = n => [[null, 0.5], [STAB[n], 0.5], [null, 0.5], [STAB[n], 0.5], [null, 0.5], [STAB[n], 0.5], [null, 0.5], [STAB[n], 0.5]];
+
+  const barLen = 4 * spb;
+  let bar = 0;
+  const put = (mode, mel) => {
+    PROG.forEach((ch, i) => {
+      const t = (bar + i) * barLen;
+      lhBar(ch, t);
+      if (mode === 'mel') addSeq(right, mel[i], t, spb, 0.88);
+      if (mode === 'stab') addSeq(right, stabBar(ch), t, spb, 0.7);
+    });
+    bar += PROG.length;
+  };
+  // intro: solo el latido (4 compases del arranque de la vuelta)
+  ['Am', 'Dm', 'G', 'C'].forEach((ch, i) => lhBar(ch, (bar + i) * barLen)); bar += 4;
+  put('mel', MEL);
+  put('stab');
+  put('mel', MEL.map(up));
+  put('mel', MEL);
+  // final: dos golpes y acorde de La menor con novena
+  const tEnd = bar * barLen;
+  addSeq(right, [[[69, 72, 76], 0.5], [null, 0.5], [[69, 72, 76], 0.5], [null, 0.5], [[64, 69, 71, 76], 2]], tEnd, spb, 0.9);
+  addSeq(left, [[33, 0.5], [null, 0.5], [45, 0.5], [null, 0.5], [[33, 45], 2]], tEnd, spb, 0.9);
+  return midi;
+}
+
 export const SONGS2 = [
   { file: 'vals-de-la-plaza.mid', title: 'Vals de la Plaza', style: 'vals criollo', build: buildValsDeLaPlaza },
   { file: 'mambo-caliente.mid', title: 'Mambo Caliente', style: 'salsa', build: buildMamboCaliente },
@@ -493,4 +548,5 @@ export const SONGS2 = [
   { file: 'swing-de-la-esquina.mid', title: 'Swing de la Esquina', style: 'jazz swing', build: buildSwingDeLaEsquina },
   { file: 'bachata-de-la-luna.mid', title: 'Bachata de la Luna', style: 'bachata', build: buildBachataDeLaLuna },
   { file: 'cumbia-de-estrellas.mid', title: 'Cumbia de Estrellas', style: 'cumbia', build: buildCumbiaDeEstrellas },
+  { file: 'bola-de-espejos.mid', title: 'Bola de Espejos', style: 'disco', build: buildBolaDeEspejos },
 ];
