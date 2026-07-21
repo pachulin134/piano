@@ -377,7 +377,9 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
       ? (mic.status === 'active' || mic.status === 'hearing' || mic.status === 'quiet' ? `🎤 señal ${mic.signalPct}%` : null)
       : listenMode ? '🎧 escuchando'
       : hasMidi ? `🎹 ${midiDevice}`
-      : screenInput ? `👆 ${INPUT_LABELS.screen}` : null;
+      : screenInput
+        ? (midiDevice === 'unsupported' ? '👆 pantalla (Safari sin MIDI)' : `👆 ${INPUT_LABELS.screen}`)
+        : null;
     const statsChip = streak > 1 ? `✓ ${streak} seguidas` : (liveScore !== null && (playAlongMode || micMode)) ? `${liveScore}%` : null;
     const chip = statsChip ?? inputChip;
 
