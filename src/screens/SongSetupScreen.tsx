@@ -159,7 +159,9 @@ export default function SongSetupScreen({ song, onBack, onStart, initialValues, 
             {midiDevice === 'unsupported'
               // Safari (iPhone/iPad) no implementa Web MIDI — nunca detectará el cable
               // por mucho que esté bien conectado; hace falta un navegador distinto.
-              ? 'Este navegador no soporta MIDI (pasa en Safari de iPhone/iPad). Abre la app con la aplicación gratuita "Web MIDI Browser" (App Store), o usa Chrome/Edge en un ordenador.'
+              // En iPhone/iPad TODOS los navegadores (Safari, Chrome, el que sea) comparten
+              // esta limitación: Apple obliga a que usen el mismo motor interno sin MIDI.
+              ? 'Ningún navegador de iPhone/iPad soporta MIDI (ni Safari ni Chrome — es cosa de Apple, no de cuál elijas). Abre la app con la aplicación gratuita "Web MIDI Browser" (App Store), o usa Chrome/Edge en un ordenador.'
               : 'Cuando conectes el cable MIDI-USB, tu piano aparecerá aquí automáticamente.'}
           </p>
         )}
