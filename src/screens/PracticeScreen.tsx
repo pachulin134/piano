@@ -17,6 +17,9 @@ import SettingsSheet from '../components/SettingsSheet';
 import EndOverlay from '../components/EndOverlay';
 import LoopBar from '../components/LoopBar';
 import TimeBar from '../components/TimeBar';
+import FragmentBar from '../components/FragmentBar';
+import { splitIntoFragments, type Fragment } from '../core/fragments';
+import { createFragmentStore } from '../storage/fragmentStore';
 import type { Song } from '../core/types';
 
 interface Props {
@@ -74,6 +77,20 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
   const freeMode = !!config.freeMode;
   const interactive = !listenMode;
   const effectiveSong = useMemo(() => simplifySong(song, level), [song, level]);
+  const fragmentStore = useMemo(() => createFragmentStore(), []);
+  const fragments = useMemo(() => splitIntoFragments(effectiveSong), [effectiveSong]);
+  const showFragmentBar = initialConfig.door === 'learn' && !micMode && fragments.length > 1;
+  const [activeFragmentIndex, setActiveFragmentIndex] = useState<number | null>(null);
+  const activeFragmentIndexRef = useRef<number | null>(null);
+  const [fragmentScores, setFragmentScores] = useState<Record<number, number>>({});
+  const [tempoBump, setTempoBump] = useState<number | null>(null); // % sugerido, o null
+  const lapCorrectRef = useRef(0);
+  const lapWrongRef = useRef(0);
+
+  const refreshFragmentScores = useCallback(() => {
+    fragmentStore.getFragmentScores(song.id).then(setFragmentScores);
+  }, [fragmentStore, song.id]);
+  useEffect(() => { refreshFragmentScores(); }, [refreshFragmentScores]);
 
   useEffect(() => { document.title = song.title; }, [song.title]);
 
@@ -113,6 +130,11 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     setStreak(0);
     setMaxStreak(0);
     setEnded(null);
+    setActiveFragmentIndex(null);
+    activeFragmentIndexRef.current = null;
+    setTempoBump(null);
+    lapCorrectRef.current = 0;
+    lapWrongRef.current = 0;
     prevBeatRef.current = -1;
   }, [effectiveSong, config]);
 
@@ -219,10 +241,12 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
       if (result === 'correct') {
         showFeedback('✓ ¡Correcto! Sigue así');
         setStreak(s => { const n = s + 1; setMaxStreak(m => Math.max(m, n)); return n; });
+        lapCorrectRef.current += 1;
       } else if (result === 'wrong') {
         setWrong(prev => new Set(prev).add(midi));
         showFeedback('✗ Esa nota no es — inténtalo otra vez');
         setStreak(0);
+        lapWrongRef.current += 1;
         window.setTimeout(() => setWrong(prev => {
           if (!prev.has(midi)) return prev;
           const next = new Set(prev); next.delete(midi); return next;
@@ -317,7 +341,23 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
         if (!freeMode || appSound) playNote(n.midi, dur);
         if (engine.config.listenMode || engine.config.guidedMode || freeMode) flashKey(n.midi, dur);
       }
-      if (engine.time < lastTimeRef.current - 0.5 && loopRef.current) showFeedback('🔁 Otra vez desde A', 1200);
+      if (engine.time < lastTimeRef.current - 0.5 && loopRef.current) {
+        showFeedback('🔁 Otra vez desde A', 1200);
+        if (activeFragmentIndexRef.current !== null) {
+          const lapTotal = lapCorrectRef.current + lapWrongRef.current;
+          if (lapTotal > 0) {
+            const lapScore = Math.round(100 * lapCorrectRef.current / lapTotal);
+            if (lapScore >= 80) {
+              fragmentStore.recordFragmentScore(song.id, activeFragmentIndexRef.current, lapScore)
+                .then(refreshFragmentScores);
+              const nextSpeed = Math.min(100, Math.round((speedRef.current * 100 + 15) / 5) * 5);
+              if (nextSpeed > Math.round(speedRef.current * 100)) setTempoBump(nextSpeed);
+            }
+          }
+          lapCorrectRef.current = 0;
+          lapWrongRef.current = 0;
+        }
+      }
       setTime(engine.time);
       lastTimeRef.current = engine.time;
       if (metronome && running) {
@@ -348,7 +388,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound, showFeedback, metronome, song.bpm, reportProgress]);
+  }, [running, onFinish, syncExpected, syncGuidedHint, flashKey, interactive, guidedMode, hasMidi, micMode, micReady, freeMode, appSound, showFeedback, metronome, song.bpm, reportProgress, fragmentStore, refreshFragmentScores]);
 
   const start = async () => {
     try {
@@ -372,6 +412,32 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     if (micMode) showFeedback('Empezamos — escucha la primera nota');
   }, [micMode, showFeedback]);
 
+  const selectFragment = useCallback((f: Fragment) => {
+    engineRef.current?.seek(f.start);
+    setTime(f.start);
+    lastTimeRef.current = f.start;
+    setActiveFragmentIndex(f.index);
+    activeFragmentIndexRef.current = f.index;
+    setTempoBump(null);
+    lapCorrectRef.current = 0;
+    lapWrongRef.current = 0;
+    setLoopState({ start: f.start, end: f.end });
+    syncExpected();
+  }, [syncExpected]);
+
+  const clearFragment = useCallback(() => {
+    setActiveFragmentIndex(null);
+    activeFragmentIndexRef.current = null;
+    setTempoBump(null);
+    setLoopState(null);
+  }, []);
+
+  const acceptTempoBump = useCallback(() => {
+    if (tempoBump === null) return;
+    setSpeedState(tempoBump / 100);
+    setTempoBump(null);
+  }, [tempoBump]);
+
   const coach: { text: string; tone: CoachTone; chip: string | null } = (() => {
     const inputChip = micMode
       ? (mic.status === 'active' || mic.status === 'hearing' || mic.status === 'quiet' ? `🎤 señal ${mic.signalPct}%` : null)
@@ -384,6 +450,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     const chip = statsChip ?? inputChip;
 
     if (audioError) return { text: '⚠ Sin sonido (revisa conexión) — puedes practicar igualmente', tone: 'warn', chip };
+    if (tempoBump !== null) return { text: `🎉 ¡Fragmento dominado!`, tone: 'ok', chip };
     if (!running && !countingDown && time > 0 && !ended) return { text: '⏸ En pausa — pulsa ▶ para seguir', tone: 'info', chip: statsChip ?? chip };
     if (micMode) {
       if (mic.status === 'denied') return { text: 'Necesitas permitir el micrófono en el navegador', tone: 'err', chip };
@@ -411,17 +478,20 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     return { text: '¡Sigue así!', tone: 'ok', chip };
   })();
 
-  const coachAction = micMode && guidedPhase === 'repeat'
-    ? { label: 'Saltar →', onClick: () => { engineRef.current?.skipPending(); syncExpected(); syncGuidedHint(hasMidi, micMode, micReady); } }
-    : (!micMode && !listenMode && !freeMode && !playAlongMode && running && expected.size > 0)
-      ? { label: '🔊 ¿Cómo suena?', onClick: () => { [...expected].forEach((m, i) => window.setTimeout(() => playNote(m, 0.8), i * 300)); } }
-      : null;
+  const coachAction = tempoBump !== null
+    ? { label: `¿Probar a ${tempoBump}%?`, onClick: acceptTempoBump }
+    : micMode && guidedPhase === 'repeat'
+      ? { label: 'Saltar →', onClick: () => { engineRef.current?.skipPending(); syncExpected(); syncGuidedHint(hasMidi, micMode, micReady); } }
+      : (!micMode && !listenMode && !freeMode && !playAlongMode && running && expected.size > 0)
+        ? { label: '🔊 ¿Cómo suena?', onClick: () => { [...expected].forEach((m, i) => window.setTimeout(() => playNote(m, 0.8), i * 300)); } }
+        : null;
 
   const keyboardH = Math.max(90, Math.round(size.h * 0.22));
   const barH = 48;
   const coachH = 46;
-  const loopH = loop ? 56 : 0;
-  const fallH = Math.max(0, size.h - keyboardH - barH - coachH - loopH);
+  const loopH = (loop && !showFragmentBar) ? 56 : 0;
+  const fragmentCaptionH = showFragmentBar ? 18 : 0;
+  const fallH = Math.max(0, size.h - keyboardH - barH - coachH - loopH - fragmentCaptionH);
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -432,9 +502,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
             if (time > 0) reportProgress();
             onExit();
           }}>✕</button>
-        <TimeBar time={time} duration={effectiveSong.duration} seekable={!micMode}
-          onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; syncExpected(); prevBeatRef.current = -1; }} />
-        {!micMode && (
+        {showFragmentBar ? (
+          <FragmentBar fragments={fragments} activeIndex={activeFragmentIndex}
+            masteredScores={fragmentScores} onSelect={selectFragment} />
+        ) : (
+          <TimeBar time={time} duration={effectiveSong.duration} seekable={!micMode}
+            onSeek={t => { engineRef.current?.seek(t); setTime(t); lastTimeRef.current = t; syncExpected(); prevBeatRef.current = -1; }} />
+        )}
+        {!micMode && !showFragmentBar && (
           <button className="btn-ghost" style={{ fontSize: 16, flexShrink: 0, whiteSpace: 'nowrap' }}
             onClick={() => {
               if (loop) { setLoopState(null); return; }
@@ -454,9 +529,19 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
         </button>
       </div>
 
+      {showFragmentBar && (
+        <div style={{ textAlign: 'center', color: 'var(--ink-3)', fontSize: 11, padding: '0 12px' }}>
+          {activeFragmentIndex !== null
+            ? <>Fragmento {activeFragmentIndex + 1} de {fragments.length} · <button
+                style={{ fontSize: 11, padding: 0, background: 'transparent', border: 'none', color: 'var(--right)', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={clearFragment}>🔗 tocar seguida</button></>
+            : `${fragments.length} fragmentos · toca uno para saltar y repetirlo`}
+        </div>
+      )}
+
       <CoachBar text={coach.text} tone={coach.tone} chip={coach.chip} action={coachAction} />
 
-      {loop && (
+      {loop && !showFragmentBar && (
         <LoopBar
           duration={effectiveSong.duration}
           start={loop.start} end={loop.end} currentTime={time}
