@@ -40,6 +40,12 @@ export function splitIntoFragments(song: Song): Fragment[] {
     }
   }
   boundaries.push(song.duration);
+  // evita un fragmento final degenerado (por debajo del hueco mínimo): se
+  // fusiona con el fragmento anterior en vez de dejar un tramo casi vacío
+  // que el motor rechazaría como bucle (setLoop ignora tramos < 0.5s)
+  while (boundaries.length > 2 && boundaries[boundaries.length - 1] - boundaries[boundaries.length - 2] < MIN_BOUNDARY_GAP) {
+    boundaries.splice(boundaries.length - 2, 1);
+  }
 
   const fragments: Fragment[] = [];
   for (let i = 0; i < boundaries.length - 1; i++) {

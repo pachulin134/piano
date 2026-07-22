@@ -49,4 +49,15 @@ describe('splitIntoFragments', () => {
     const s = song([], 40);
     expect(splitIntoFragments(s)).toEqual([{ index: 0, start: 0, end: 40 }]);
   });
+
+  it('no deja un fragmento final degenerado (< hueco mínimo): se fusiona con el anterior', () => {
+    // el límite natural más cercano al final cae a 0.2s del final de la canción;
+    // sin la fusión, el motor rechazaría ese tramo como bucle (< 0.5s)
+    const notes = [note(60, 11), note(62, 22), note(64, 44.8)];
+    const s = song(notes, 45);
+    const frags = splitIntoFragments(s);
+    expect(frags[frags.length - 1].end - frags[frags.length - 1].start).toBeGreaterThanOrEqual(2);
+    expect(frags[frags.length - 1]).toEqual({ index: frags.length - 1, start: 22, end: 45 });
+    expect(frags.map(f => f.start)).toEqual([0, 11, 22]);
+  });
 });

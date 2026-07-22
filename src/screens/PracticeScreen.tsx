@@ -130,10 +130,14 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     setStreak(0);
     setMaxStreak(0);
     setEnded(null);
+    const hadFragmentLoop = activeFragmentIndexRef.current !== null;
     setActiveFragmentIndex(null);
     activeFragmentIndexRef.current = null;
     setTempoBump(null);
-    setLoopState(null); // sin esto, un bucle de fragmento sobrevive invisible a un cambio de nivel/mano
+    // solo el bucle de fragmento debe morir aquí: si no, sobrevive invisible a
+    // un cambio de nivel/mano; un bucle A-B manual (fuera de Aprender) sí debe
+    // seguir vivo tras el cambio, como pasaba antes de esta función
+    if (hadFragmentLoop) setLoopState(null);
     lapCorrectRef.current = 0;
     lapWrongRef.current = 0;
     prevBeatRef.current = -1;
@@ -143,6 +147,9 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
   useEffect(() => {
     speedRef.current = speed;
     engineRef.current?.setSpeed(speed);
+    // una sugerencia de velocidad vieja no debe sobrevivir a un cambio manual
+    // de velocidad (si no, tocarla más tarde podría BAJAR la velocidad actual)
+    setTempoBump(null);
   }, [speed]);
 
   // Los ajustes vivos (⚙) se comunican hacia arriba para que la memoria por
