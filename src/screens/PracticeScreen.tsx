@@ -133,6 +133,7 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     setActiveFragmentIndex(null);
     activeFragmentIndexRef.current = null;
     setTempoBump(null);
+    setLoopState(null); // sin esto, un bucle de fragmento sobrevive invisible a un cambio de nivel/mano
     lapCorrectRef.current = 0;
     lapWrongRef.current = 0;
     prevBeatRef.current = -1;
@@ -450,7 +451,8 @@ export default function PracticeScreen({ song, initialConfig, onFinish, onConfig
     const chip = statsChip ?? inputChip;
 
     if (audioError) return { text: '⚠ Sin sonido (revisa conexión) — puedes practicar igualmente', tone: 'warn', chip };
-    if (tempoBump !== null) return { text: `🎉 ¡Fragmento dominado!`, tone: 'ok', chip };
+    // El aviso de fragmento dominado vive en el botón de coachAction (más abajo), no aquí:
+    // así "¿Probar a X%?" queda visible sin tapar las pistas de nota mientras sigues tocando.
     if (!running && !countingDown && time > 0 && !ended) return { text: '⏸ En pausa — pulsa ▶ para seguir', tone: 'info', chip: statsChip ?? chip };
     if (micMode) {
       if (mic.status === 'denied') return { text: 'Necesitas permitir el micrófono en el navegador', tone: 'err', chip };
